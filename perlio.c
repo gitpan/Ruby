@@ -87,7 +87,7 @@ static VALUE
 pio_path(VALUE self)
 {
 	GV* gv = PGV(self);
-	VALUE name = rb_str_new(GvNAME(gv), GvNAMELEN(gv));
+	VALUE name = rb_str_new(GvNAME(gv), (long)GvNAMELEN(gv));
 
 	V2V_INFECT(self, name);
 
@@ -181,7 +181,7 @@ pio_inspect(VALUE self)
 	rb_str_buf_cat2(str, " ");
 
 	sv = IO_Handle_inspect(aTHX_ gv);
-	rb_str_buf_cat(str, SvPVX(sv), SvCUR(sv));
+	rb_str_buf_cat(str, SvPVX(sv), (long)SvCUR(sv));
 	SvREFCNT_dec(sv);
 
 	rb_str_cat(str, ">", 1);
@@ -255,7 +255,7 @@ pio_close(VALUE self)
 {
 	dTHX;
 
-	return do_close(PGV(self), FALSE)  ? Qtrue : Qfalse;
+	return do_close(PGV(self), (bool)FALSE)  ? Qtrue : Qfalse;
 }
 
 
@@ -292,8 +292,8 @@ pio_open(int argc, VALUE* argv, VALUE klass)
 		m = rb_check_convert_type(vmode, T_FIXNUM, "Fixnum", "to_int");
 		if(!NIL_P(m)){
 			StringValue(vpath);
-			arg1ptr = RSTRING(vpath)->ptr;
-			arg1len = RSTRING(vpath)->len;
+			arg1ptr = RSTRING_PTR(vpath);
+			arg1len = RSTRLEN(vpath);
 
 			as_raw = TRUE;
 
@@ -312,10 +312,10 @@ pio_open(int argc, VALUE* argv, VALUE klass)
 			v = vmode;
 			StringValue(v);
 
-			vmode = rb_str_new(NULL, RSTRING(v)->len+1);
-			RSTRING(vmode)->len = 0;
+			vmode = rb_str_new(NULL, RSTRING_LEN(v)+1);
+			RSTRING_LEN(vmode) = 0;
 	
-			p   = RSTRING(v)->ptr;
+			p   = RSTRING_PTR(v);
 
 			while(*p && isSPACE(*p)) p++;
 
@@ -344,18 +344,18 @@ pio_open(int argc, VALUE* argv, VALUE klass)
 				mode |= O_BINARY;
 			}
 
-			rb_str_buf_cat(vmode, p, RSTRING(v)->len - (p - RSTRING(v)->ptr));
+			rb_str_buf_cat(vmode, p, RSTRING_LEN(v) - (p - RSTRING_PTR(v)));
 
-			arg1ptr = RSTRING(vmode)->ptr;
-			arg1len = RSTRING(vmode)->len;
+			arg1ptr = RSTRING_PTR(vmode);
+			arg1len = RSTRLEN(vmode);
 
 		}
 
 	}
 	else{
 		StringValue(vpath);
-		arg1ptr = RSTRING(vpath)->ptr;
-		arg1len = RSTRING(vpath)->len;
+		arg1ptr = RSTRING_PTR(vpath);
+		arg1len = RSTRLEN(vpath);
 
 		mode = O_RDONLY;
 	}
@@ -365,11 +365,11 @@ pio_open(int argc, VALUE* argv, VALUE klass)
 	}
 
 	
-	gv_gen(gv, RSTRING(vpath)->ptr, RSTRING(vpath)->len);
+	gv_gen(gv, RSTRING_PTR(vpath), RSTRLEN(vpath));
 
-	if(!do_openn(gv, arg1ptr, arg1len, as_raw, mode, perm, Nullfp, &arg2, numargs))
+	if(!do_openn(gv, arg1ptr, (I32)arg1len, as_raw, mode, perm, Nullfp, &arg2, numargs))
 	{
-		rb_sys_fail(RSTRING(vpath)->ptr);
+		rb_sys_fail(RSTRING_PTR(vpath));
 	}
 
 	self = gv2pio_noinc(gv);
@@ -415,9 +415,9 @@ pio_binmode(int argc, VALUE* argv, VALUE self)
 	else{
 		if(SYMBOL_P(layer)){
 			const char* name  = rb_id2name(SYM2ID(layer));
-			layer = rb_str_new(NULL, strlen(name)+1);
+			layer = rb_str_new(NULL, (long)strlen(name)+1);
 
-			RSTRING(layer)->len = 0;
+			RSTRING_LEN(layer) = 0;
 
 			rb_str_buf_cat2(layer, ":");
 			rb_str_buf_cat2(layer, name);
@@ -425,7 +425,7 @@ pio_binmode(int argc, VALUE* argv, VALUE self)
 			StringValue(layer);
 		}
 
-		discp = RSTRING(layer)->ptr;
+		discp = RSTRING_PTR(layer);
 	}
 
 	if(PerlIO_binmode(aTHX_ IoIFP(io), IoTYPE(io), mode, discp)){
@@ -513,11 +513,12 @@ pio_set_pos(VALUE self, VALUE pos)
 {
 	dTHX;
 	PerlIO* fp = PIOFP(self);
+	Off_t ret;
 
-	pos = PerlIO_seek(fp, NUM2OFFT(pos), SEEK_SET);
+	ret = PerlIO_seek(fp, NUM2OFFT(pos), SEEK_SET);
 	PerlIO_clearerr(fp);
 
-	return OFFT2NUM(pos);
+	return OFFT2NUM(ret);
 }
 
 static VALUE
@@ -537,7 +538,7 @@ pio_get_lineno(VALUE self)
 	dTHX;
 	IO* io = PIO(self);
 
-	return INT2NUM(IoLINES(io));
+	return INT2NUM((long)IoLINES(io));
 }
 static VALUE
 pio_set_lineno(VALUE self, VALUE lineno)
@@ -592,7 +593,7 @@ io_gets(pTHX_ SV* sv, IO* io)
 {
 	if(sv_gets(sv, IoIFP(io), FALSE)){
 		IoLINES(io)++;
-		return rb_tainted_str_new(SvPVX(sv), SvCUR(sv));
+		return rb_tainted_str_new(SvPVX(sv), (long)SvCUR(sv));
 	}
 
 	if(PerlIO_error(IoIFP(io))) rb_sys_fail(NULL);
@@ -667,7 +668,8 @@ pio_read(int argc, VALUE* argv, VALUE self)
 		}
 		for(;;){
 			rb_str_locktmp(buffer);
-			n = PerlIO_read(ifp, RSTRING(buffer)->ptr+bytes, len - bytes);
+			assert( (len - bytes) >= 0 );
+			n = PerlIO_read(ifp, RSTRING_PTR(buffer)+bytes, (Size_t)(len - bytes));
 			rb_str_unlocktmp(buffer);
 
 			if (n == 0 && bytes == 0) {
@@ -702,7 +704,7 @@ pio_read(int argc, VALUE* argv, VALUE self)
 	}
 
 	rb_str_locktmp(buffer);
-	n = PerlIO_read(ifp, RSTRING(buffer)->ptr, len);
+	n = PerlIO_read(ifp, RSTRING_PTR(buffer), (Size_t)len);
 	rb_str_unlocktmp(buffer);
 
 	if(n <= 0){
@@ -756,7 +758,7 @@ pio_each_line(int argc, VALUE* argv, VALUE self)
 
 	io = CheckReadable(self);
 
-	while(!NIL_P(line = io_gets(aTHX, sv, io))){
+	while(!NIL_P(line = io_gets(aTHX_ sv, io))){
 		rb_yield(line);
 	}
 	return self;
@@ -797,8 +799,8 @@ pio_write(VALUE self, VALUE obj)
 
 	obj = rb_obj_as_string(obj);
 
-	tmplen = RSTRING(obj)->len;
-	tmp    = RSTRING(obj)->ptr;
+	tmplen = RSTRLEN(obj);
+	tmp    = RSTRING_PTR(obj);
 
 	n = PerlIO_write(IoOFP(io), tmp, tmplen);
 

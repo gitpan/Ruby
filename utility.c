@@ -29,7 +29,7 @@ plrb_str_new_sv(pTHX_ SV* sv)
 {
 	STRLEN len;
 	const char* pv = SvPV(sv, len);
-	VALUE result =  rb_str_new(pv, len);
+	VALUE result =  rb_str_new(pv, (long)len);
 	S2V_INFECT(sv, result);
 	return result;
 }

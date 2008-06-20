@@ -253,7 +253,7 @@ plrb_perl_eval(int argc, VALUE* argv, VALUE self)
 	rb_scan_args(argc, argv, "1", &vsrc);
 
 	StringValue(vsrc);
-	sv = newSVpvn(RSTRING(vsrc)->ptr, RSTRING(vsrc)->len);
+	sv = newSVpvn(RSTRING_PTR(vsrc), RSTRLEN(vsrc));
 
 	rb_set_errinfo(Qnil);
 
@@ -286,7 +286,7 @@ plrb_perl_require(int argc, VALUE* argv, VALUE self)
 	rb_scan_args(argc, argv, "1", &modname);
 
 	StringValue(modname);
-	sv = newSVpvn(RSTRING(modname)->ptr, RSTRING(modname)->len);
+	sv = newSVpvn(RSTRING_PTR(modname), RSTRLEN(modname));
 
 	Perl_load_module(aTHX_ PERL_LOADMOD_NOIMPORT, sv, Nullsv, Nullsv);
 
@@ -304,7 +304,7 @@ plrb_perl_string(VALUE self, VALUE str)
 	PERL_UNUSED_ARG(self);
 
 	s = rb_obj_as_string(str);
-	sv = newSVpvn(RSTRING(s)->ptr, RSTRING(s)->len);
+	sv = newSVpvn(RSTRING_PTR(s), RSTRLEN(s));
 
 	V2S_INFECT(str, sv);
 	return any_new_noinc( sv );
@@ -318,7 +318,7 @@ plrb_perl_integer(VALUE self, VALUE iv){
 	PERL_UNUSED_ARG(self);
 
 	i = rb_Integer(iv);
-	sv = newSViv(NUM2INT(i));
+	sv = newSViv((IV)NUM2INT(i));
 
 	V2S_INFECT(iv, sv);
 	return any_new_noinc( sv );
@@ -445,14 +445,14 @@ plrb_package_fetch(int argc, VALUE* argv, VALUE self)
 		createflag = Qtrue;
 
 	StringValue(name);
-	pv    = RSTRING(name)->ptr;
-	pvlen = RSTRING(name)->len;
+	pv    = RSTRING_PTR(name);
+	pvlen = RSTRLEN(name);
 
 	fullnamelen = SvCUR(pkg) + 2 + pvlen; /* pkg :: name */
 
 	if( fullnamelen >= (sizeof(smallbuf)/sizeof(char))){
-		largebuf = rb_str_buf_new(fullnamelen);
-		p = fullname = RSTRING(largebuf)->ptr;
+		largebuf = rb_str_buf_new((long)fullnamelen);
+		p = fullname = RSTRING_PTR(largebuf);
 	}
 	else{
 		p = fullname = smallbuf;
@@ -701,7 +701,7 @@ plrb_glob_fetch(VALUE self, VALUE elem)
 		return GvIO(gv) ? gv2pio(gv) : Qnil;
 	}
 	else if(id == id_name){
-		return rb_str_new(GvNAME(gv), GvNAMELEN(gv));
+		return rb_str_new(GvNAME(gv), (long)GvNAMELEN(gv));
 	}
 	else if(id == id_package){
 		return plrb_get_package(HvNAME(GvSTASH(gv)));
@@ -755,7 +755,7 @@ plrb_scalar_coerce(VALUE self, VALUE other)
 	dTHX;
 	SV* sv = valueSV(self);
 	if(SvIOK(sv)){
-		return rb_assoc_new(other, rb_int_new(SvIV(sv)));
+		return rb_assoc_new(other, rb_int_new((long)SvIV(sv)));
 	}
 	else if(looks_like_number(sv)){
 		return rb_assoc_new(other, rb_float_new(SvNV(sv)));
@@ -797,7 +797,7 @@ plrb_scalar_to_s(VALUE self)
 	SV* sv = valueSV(self);
 	STRLEN len;
 	const char* pv = sv_to_s(sv, len);
-	VALUE v = rb_str_new(pv, len);
+	VALUE v = rb_str_new(pv, (long)len);
 
 	S2V_INFECT(sv, v);
 
@@ -824,7 +824,7 @@ plrb_scalar_to_int(VALUE self)
 	SvGETMAGIC(sv);
 
 	if(SvIOK(sv)){
-		value = rb_int_new(SvIV(sv));
+		value = rb_int_new((long)SvIV(sv));
 	}
 	else if(SvNOK(sv)){
 		value = rb_dbl2big(SvNV(sv));
@@ -921,8 +921,8 @@ plrb_scalar_each_line(int argc, VALUE* argv, VALUE self)
 	}
 
 	rs = rb_obj_as_string(rs);
-	rspv  = RSTRING(rs)->ptr;
-	rslen = RSTRING(rs)->len;
+	rspv  = RSTRING_PTR(rs);
+	rslen = RSTRLEN(rs);
 
 	sv = valueSV(self);
 	SvGETMAGIC(sv);
@@ -947,9 +947,9 @@ plrb_scalar_each_line(int argc, VALUE* argv, VALUE self)
 		}
 		if(pv < p && p[-1] == newline &&
 			(rslen <= 1 ||
-				rb_memcmp(RSTRING(rs)->ptr, p-rslen, rslen) == 0)){
+				rb_memcmp(RSTRING_PTR(rs), p-rslen, (long)rslen) == 0)){
 
-			line = any_new2_noinc(CLASS_OF(self), newSVpvn(s, p-s));
+			line = any_new2_noinc(CLASS_OF(self), newSVpvn(s, (STRLEN)(p-s)));
 
 			V2V_INFECT(self, line);
 			rb_yield(line);
@@ -961,7 +961,7 @@ plrb_scalar_each_line(int argc, VALUE* argv, VALUE self)
 
 	if(s != pend){
 		if(p > pend) p = pend;
-		line = any_new2_noinc(CLASS_OF(self), newSVpvn(s, p-s));
+		line = any_new2_noinc(CLASS_OF(self), newSVpvn(s, (STRLEN)(p-s)));
 
 		V2V_INFECT(self, line);
 
@@ -983,7 +983,7 @@ plrb_scalar_concat(VALUE self, VALUE other)
 
 	other = rb_obj_as_string(other);
 
-	sv_catpvn_mg(valueSV(self), RSTRING(other)->ptr, RSTRING(other)->len);
+	sv_catpvn_mg(valueSV(self), RSTRING_PTR(other), RSTRLEN(other));
 
 	V2V_INFECT(other, self);
 	return self;
@@ -1141,8 +1141,8 @@ plrb_array_join(int argc, VALUE* argv, VALUE self)
 	}
 	else{
 		StringValue(vsep);
-		seplen = RSTRING(vsep)->len;
-		sepstr = RSTRING(vsep)->ptr;
+		seplen = RSTRLEN(vsep);
+		sepstr = RSTRING_PTR(vsep);
 	}
 
 	len = av_len(ary)+1;
@@ -1160,7 +1160,7 @@ plrb_array_join(int argc, VALUE* argv, VALUE self)
 		if(svp){
 			STRLEN l;
 			const char* s = SvPV(*svp, l);
-			rb_str_buf_cat(result, s, l);
+			rb_str_buf_cat(result, s, (long)l);
 		}
 	}
 
@@ -1284,7 +1284,7 @@ plrb_array_size(VALUE self)
 	dTHX;
 	AV* ary = (AV*)valueRV(self);
 
-	return UINT2NUM(av_len(ary)+1);
+	return INT2NUM(av_len(ary)+1);
 }
 
 static VALUE
@@ -1337,7 +1337,7 @@ plrb_hash_aref(VALUE self, VALUE key)
 
 	key = rb_obj_as_string(key);
 
-	svp = hv_fetch(hash, RSTRING(key)->ptr, RSTRING(key)->len, FALSE);
+	svp = hv_fetch(hash, RSTRING_PTR(key), RSTRING_LEN(key), FALSE);
 
 	return svp ? SV2VALUE(*svp) : Qnil;
 }
@@ -1352,7 +1352,7 @@ plrb_hash_aset(VALUE self, VALUE key, VALUE val)
 
 	key = rb_obj_as_string(key);
 
-	hv_store(hash, RSTRING(key)->ptr, RSTRING(key)->len, STORE_AS_SV(val), 0);
+	hv_store(hash, RSTRING_PTR(key), RSTRING_LEN(key), STORE_AS_SV(val), 0);
 
 	return val;
 }
@@ -1372,7 +1372,7 @@ plrb_hash_each_key(VALUE self)
 	while( (entry = hv_iternext(hash)) ){
 		key = hv_iterkey(entry, &klen);
 
-		ksv = newSVpvn(key, klen);
+		ksv = newSVpvn(key, (STRLEN)klen);
 		SvREADONLY_on(ksv);
 
 		rb_yield(any_new_noinc(ksv));
@@ -1417,7 +1417,7 @@ plrb_hash_each_pair(VALUE self)
 		key = hv_iterkey(entry, &klen);
 		val = hv_iterval(hash, entry);
 
-		ksv = newSVpvn(key, klen);
+		ksv = newSVpvn(key, (STRLEN)klen);
 		SvREADONLY_on(ksv);
 
 		rb_yield_values(2, any_new_noinc(ksv), SV2VALUE(val));
@@ -1435,7 +1435,7 @@ plrb_hash_delete(VALUE self, VALUE key)
 	Modify(self);
 
 	key = rb_obj_as_string(key);
-	hv_delete(hash, RSTRING(key)->ptr, RSTRING(key)->len, G_DISCARD);
+	hv_delete(hash, RSTRING_PTR(key), RSTRING_LEN(key), G_DISCARD);
 
 	return self;
 }
@@ -1448,7 +1448,7 @@ plrb_hash_exists(VALUE self, VALUE key)
 
 	key = rb_obj_as_string(key);
 
-	return hv_exists(hash, RSTRING(key)->ptr, RSTRING(key)->len) ? Qtrue : Qfalse;
+	return hv_exists(hash, RSTRING_PTR(key), RSTRING_LEN(key)) ? Qtrue : Qfalse;
 }
 
 static VALUE
@@ -1613,7 +1613,7 @@ plrb_package_inspect(VALUE self)
 	VALUE str = rb_str_new2(rb_class2name(rb_obj_class(self)));
 
 	rb_str_cat(str, "(", 1);
-	rb_str_cat(str, SvPVX(sv), SvCUR(sv));
+	rb_str_cat(str, SvPVX(sv), (long)SvCUR(sv));
 	rb_str_cat(str, ")", 1);
 	return str;
 }
@@ -1643,7 +1643,7 @@ plrb_package_singleton_method_added(VALUE self, VALUE method)
 	rb_str_cat2(name, rb_id2name(id_m));
 
 
-	cv = newXS(RSTRING(name)->ptr, XS_Ruby_function_dispatcher, __FILE__);
+	cv = newXS(RSTRING_PTR(name), XS_Ruby_function_dispatcher, __FILE__);
 	CvXSUBANY(cv).any_iv = (IV)id_m;
 
 	return Qnil;
@@ -1682,7 +1682,7 @@ plrb_package_function_invoke(int argc, VALUE* argv, VALUE self)
 		rb_str_buf_cat2(buffer, "::");
 		rb_str_buf_cat2(buffer, rb_id2name(meth_id));
 
-		gv = gv_fetchpv(RSTRING(buffer)->ptr, TRUE, SVt_PV);
+		gv = gv_fetchpv(RSTRING_PTR(buffer), TRUE, SVt_PV);
 
 		rb_ivar_set(self, meth_id, any_new2(plrb_cAny, (SV*)gv));
 	}
@@ -1741,14 +1741,14 @@ obj_to_perl(VALUE obj)
 		SvREFCNT_inc(sv);
 		break;
 	case T_STRING:
-		sv = newSVpvn(RSTRING(obj)->ptr, RSTRING(obj)->len);
+		sv = newSVpvn(RSTRING_PTR(obj), RSTRLEN(obj));
 		break;
 	case T_FIXNUM:
-		sv = newSViv(FIX2INT(obj));
+		sv = newSViv((IV)FIX2INT(obj));
 		break;
 	case T_BIGNUM:
 		obj = rb_big2str(obj, 10);
-		sv = newSVpv(RSTRING(obj)->ptr, RSTRING(obj)->len);
+		sv = newSVpv(RSTRING_PTR(obj), RSTRLEN(obj));
 		break;
 	case T_FLOAT:
 		sv = newSVnv(RFLOAT(obj)->value);

@@ -8,11 +8,13 @@ example/funcall.pl
 example/io.rb
 example/lwp.rb
 example/mine.pl
+example/perlio.rb
 example/pirb
 example/printenv.pl
 example/quine.pl
 example/regexp.pl
 example/rubyish.pl
+example/segv.pl
 example/thread.pl
 example/version.pl
 inspect.c

@@ -1,4 +1,8 @@
 Revision history for Ruby.pm
 
-0.01  Mon Jun 16 12:08:28 2008
+0.02 Fri Jun 20 16:26:01 2008
+	- doesn't register non-pointer VALUEs
+	- fix a possible syntax error (aTHX, -> aTHX_)
+
+0.01  Sun Jun 15 22:17:59 2008
 	- the first version released to CPAN

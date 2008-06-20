@@ -121,7 +121,7 @@ void  plrb_delSVvalue(pTHX_ SV*);
 const char* plrb_value_pv(volatile VALUE* vp, STRLEN* lenp);
 
 VALUE plrb_name2class(pTHX_ const char* name);
-VALUE plrb_ruby_class(pTHX_ const char* name, bool check);
+VALUE plrb_ruby_class(pTHX_ const char* name, int check);
 VALUE plrb_ruby_self (pTHX_ SV* sv);
 
 void plrb_exc_raise(VALUE exc);
@@ -179,6 +179,8 @@ extern ID plrb_id_call_from_perl;
 #define ruby_self(sv) plrb_ruby_self(aTHX_ sv)
 
 #define name2class(name) plrb_name2class(aTHX_ name)
+
+#define RSTRLEN(s) ((STRLEN)RSTRING_LEN(s))
 
 /* taint infecting */
 

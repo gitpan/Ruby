@@ -4,7 +4,7 @@
 
 #include "ruby_pm.h"
 
-#define INSTALL_GVAR(sv, name) sv_magicext(sv, NULL, PERL_MAGIC_ext, &gvar_vtbl, (char*)name, strlen(name))
+#define INSTALL_GVAR(sv, name) sv_magicext(sv, NULL, PERL_MAGIC_ext, &gvar_vtbl, (char*)name, (I32)strlen(name))
 
 static ID id_to_f;
 static ID id_to_i;
@@ -13,7 +13,7 @@ static ID id_new;
 XS(XS_Ruby_VALUE_new); /* -Wmissing-prototypes */
 XS(XS_Ruby_VALUE_new)
 {
-	dXSARGS;
+	dVAR; dXSARGS;
 	SV* selfsv;
 	VALUE result;
 	PERL_UNUSED_VAR(cv);
@@ -122,7 +122,7 @@ CODE:
 	switch(ix){
 	case 0: /* string */
 		str = SvPV(result, len);
-		RETVAL = rb_str_new(str, len);
+		RETVAL = rb_str_new(str, (long)len);
 		break;
 	case 1: /* integer */
 		str = SvPV(source, len);

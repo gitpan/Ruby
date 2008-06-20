@@ -4,18 +4,35 @@ use strict;
 
 use Ruby -all;
 
+$| = 1; # autoflush
+
 use Ruby -eval => <<'.';
-def make_thread(id)
+def make_thread_ruby(id)
 
 Thread.new{
 	5.times{|i|
 		puts(" " * id + "Ruby: \##{id} #{i}");
 		Thread.pass;
 	}
-	"Tread(#{id}) END";
+	"Tread(#{id}) done";
 }
 end
 .
+
+sub make_thread_perl{
+	my $id = shift;
+
+	Thread->new(sub{
+		5->times(sub{
+			my $i = shift;
+			puts " " x $id . " Ruby: $id $i";
+		});
+		return "Thread($id) done.";
+	});
+}
+
+#*make_thread = \&make_thread_perl; # doesn't work
+*make_thread = \&make_thread_ruby;
 
 my $thr1 = make_thread(1);
 my $thr2 = make_thread(2);

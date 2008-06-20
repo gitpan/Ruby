@@ -7,9 +7,66 @@ use warnings;
 
 use Ruby -all;
 
-{
+
+my $bd = Board->new(
+	10, # hight
+	10, # width
+	10, # num of bombs
+);
+
+
+system "stty raw -echo";
+
+while(true){
+	$_ = getc;
+
+	if($_ eq 'n'){
+		$bd->reset;
+	}
+	elsif($_ eq 'm'){
+		$bd->mark;
+	}
+	elsif($_ eq 'j'){
+		$bd->down;
+	}
+	elsif($_ eq 'k'){
+		$bd->up;
+	}
+	elsif($_ eq 'h'){
+		$bd->left;
+	}
+	elsif($_ eq 'l'){
+		$bd->right;
+	}
+	elsif($_ eq ' '){
+		$bd->open;
+	}
+	elsif($_ eq 'q'){
+		$bd->quit;
+		last;
+	}
+
+	if($bd->is_over){
+		my $c;
+		print "\nquit?(y/n) ";
+		1 while(($c = lc getc) !~ /^[yn]/);
+
+		$c eq 'y' and last;
+
+		$bd->reset;
+	}
+}
+
+puts;
+
+END{
+	system "stty -raw echo";
+}
+
+
+BEGIN{
 	package Board;
-	use Ruby;
+	use Ruby; # import symbols
 	use Ruby -base => 'Object';
 
 	Array->alias('aref', '[]');
@@ -19,7 +76,7 @@ use Ruby -all;
 	our $Opened  = 43;
 	our $Over    = 45;
 
-	our @CHR = ('. ', '1 ', '2 ', '3 ', '4 ', '5 ', '6 ', '7 ', '8 ', 'M ', 'B ', '@@');
+	our @CHR = ('. ', '1 ', '2 ', '3 ', '4 ', '5 ', '6 ', '7 ', '8 ', 'M ', 'B ', '@ ');
 
 	__PACKAGE__->attr_accessor(qw(_hi _wi _m _ms _total
 		_cx _cy _mc _over _data _state));
@@ -274,55 +331,4 @@ use Ruby -all;
 			$self->pos();
 		}
 	}
-}
-
-my $bd = Board->new(10, 10, 10);
-
-
-system "stty raw -echo";
-
-while(true){
-	$_ = getc;
-
-	if($_ eq 'n'){
-		$bd->reset;
-	}
-	elsif($_ eq 'm'){
-		$bd->mark;
-	}
-	elsif($_ eq 'j'){
-		$bd->down;
-	}
-	elsif($_ eq 'k'){
-		$bd->up;
-	}
-	elsif($_ eq 'h'){
-		$bd->left;
-	}
-	elsif($_ eq 'l'){
-		$bd->right;
-	}
-	elsif($_ eq ' '){
-		$bd->open;
-	}
-	elsif($_ eq 'q'){
-		$bd->quit;
-		last;
-	}
-
-	if($bd->is_over){
-		my $c;
-		print "\nquit?(y/n) ";
-		1 while(($c = lc getc) !~ /^[yn]/);
-
-		$c eq 'y' and last;
-
-		$bd->reset;
-	}
-}
-
-puts;
-
-END{
-	system "stty -raw echo";
 }

@@ -8,7 +8,7 @@ use warnings;
 use Carp ();
 use XSLoader ();
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 XSLoader::load(__PACKAGE__, $VERSION);
 
@@ -44,6 +44,7 @@ our @EXPORT_OK = qw(
 our %EXPORT_COMMANDS = (
 	-function  => \&_export_symbol,
 	-variable  => \&_export_symbol,
+	-alias     => \&_alias,
 
 	-class     => \&_export_class,
 	-module    => \&_export_class,
@@ -222,6 +223,14 @@ sub _base{
 
 	rb_define_class($caller->[0], $base);
 	rb_install_class($caller->[0], $caller->[0]);
+}
+
+sub _alias{
+	my($class, $arg) = @_;
+
+	my($alias, $orig) = @{$arg};
+
+	rb_install_method("Ruby::Object::$alias", $orig);
 }
 
 

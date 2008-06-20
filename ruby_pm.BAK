@@ -537,7 +537,7 @@ struct
 static VALUE
 plrb_funcaller(volatile funcall_arg* arg)
 {
-	return rb_funcall2(arg->recv, arg->method, arg->argc, arg->argv); /* XXX: SEGV as of 0.02 */
+	return rb_funcall2(arg->recv, arg->method, arg->argc, arg->argv);
 }
 
 static VALUE

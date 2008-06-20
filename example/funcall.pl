@@ -58,7 +58,7 @@ rb_eval(<<'.', __PACKAGE__);
 
 require 'benchmark';
 
-n = self['$n'].to_i * 1000;
+n = self['$n'].to_i * 100;
 
 puts "In Ruby:";
 puts "Benchmark: timing #{n} iterations.";

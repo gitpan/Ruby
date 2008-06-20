@@ -1,9 +1,7 @@
-#!perl
-
-require 5.008;
+use 5.008_001;
 
 use constant RUBY_REQUIRE_VERSION_LT => "1.8.6";
-use constant RUBY_REQUIRE_VERSION_GT => "1.8.7"; # maybe
+use constant RUBY_REQUIRE_VERSION_GT => "1.8.7";
 
 use strict;
 use warnings;
@@ -15,7 +13,6 @@ use File::Basename;
 
 use Getopt::Long;
 
-print "ExtUtils::MakeMaker $ExtUtils::MakeMaker::VERSION\n";
 
 my $ruby = 'ruby';
 
@@ -44,7 +41,7 @@ unless(-x $ruby){
 my $rubysign = `$ruby -v`;
 
 if(!$rubysign or $rubysign !~ /^ruby /){
-	die "The command '$ruby' don't seem to be ruby, stopped";
+	die "The command '$ruby' doesn't seem to be ruby, stopped";
 }
 
 print "Using $ruby\n";
@@ -52,9 +49,13 @@ print $rubysign;
 
 my $rbver = `$ruby -e "print RUBY_VERSION"`;
 
-if($rbver lt RUBY_REQUIRE_VERSION_LT && $rbver gt RUBY_REQUIRE_VERSION_GT){
-	die sprintf 'Must be %s <= version <= %s (this is version %s)',
-		RUBY_REQUIRE_VERSION_LT, RUBY_REQUIRE_VERSION_GT, $rbver;
+if($rbver lt RUBY_REQUIRE_VERSION_LT){
+	die "Ruby version ",
+		RUBY_REQUIRE_VERSION_LT,
+		" required--this is only version $rbver, stopped";
+}
+if($rbver gt RUBY_REQUIRE_VERSION_GT){
+	die "Ruby version $rbver is not supported, stopped";
 }
 
 my $archdir    = ruby_config($ruby, "archdir");
@@ -99,7 +100,7 @@ WriteMakefile(
 
 	OBJECT       => '$(O_FILES)',
 
-	DEFINE       => join(' ', ()),
+	DEFINE       => join(' ', qq[-DMY_RUBY_VERSION="$rbver"]),
 
 	INC          => qq[-I"$archdir"] . $rubyhdrdir,
 	LIBS         => qq[-L$libdir $librubyarg],
