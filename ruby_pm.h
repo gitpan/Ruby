@@ -134,19 +134,20 @@ void plrb_install_class(pTHX_ const char* pkg, VALUE klass);
 VALUE plrb_errinfo(void);
 void  plrb_set_errinfo(VALUE e);
 
-VALUE plrb_funcall_protect(VALUE recv, ID method, int argc, SV** argv);
-
+VALUE plrb_funcall_protect(pTHX_ VALUE recv, ID method, int argc, SV** argv);
+#define Funcall(recv, method, argc, argv) plrb_funcall_protect(aTHX_ recv, method, argc, argv)
 
 VALUE plrb_protect0(plrb_func_t);
 VALUE plrb_protect1(plrb_func_t, VALUE arg1);
 VALUE plrb_protect(plrb_func_t, int argc, ...);
 
-
+XS(XS_Ruby_VALUE_new);
 XS(XS_Ruby_function_dispatcher);
 XS(XS_Ruby_method_dispatcher);
-
+XS(XS_Ruby_class_holder);
 
 extern ID plrb_id_call_from_perl;
+
 
 /* macros for SV */
 

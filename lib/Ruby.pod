@@ -240,7 +240,7 @@ Goro Fuji (藤 吾郎) E<lt>gfuji(at)cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) Goro Fuji. All rights reserved.
+Copyright (c) 2008, Goro Fuji. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

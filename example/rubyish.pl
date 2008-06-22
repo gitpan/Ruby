@@ -10,6 +10,7 @@ def hello()
 	puts "Hello, #{ message() } world!\n\n"; # ok!
 end
 
+
 __RUBY__
 
 sub message{

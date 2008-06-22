@@ -10,9 +10,9 @@ SYNOPSIS
 
 DEPENDENCIES
 
-	Perl 5.8.0 or later.
+	Perl 5.8.1 or later.
 
-	Ruby 1.8.x (not 1.9.x)
+	Ruby 1.8.6 or 1.8.7 (not 1.9.x)
 
 INSTALLATION
 

@@ -5,8 +5,8 @@ use strict;
 
 use Test::More tests => 89;
 
-
-sub DEBUG(){ 0 }
+use constant DEBUG => 0;
+use constant N     => 100;
 
 END{ pass "test end" }
 
@@ -59,7 +59,7 @@ sub gctest{
 
 	my $o = Hash->new();
 
-	for(1 .. 100){
+	for(1 .. N){
 		GC->start;
 		my $a = Array->new();
 		my $t = T->new;
@@ -72,12 +72,12 @@ sub gctest{
 
 	my $lambda;
 	my @ary;
-	for(1 .. 1000){
+	for(1 .. N){
 		my $h = Hash->new();
 		my $a = Array->new();
 
 		my $i = $_;
-		$lambda = lambda { is $i, 1000, "lambda->()" };
+		$lambda = lambda { is $i, N, "lambda->()" };
 
 		perl_ary_push(\@ary, T->new);
 	}
@@ -93,13 +93,13 @@ sub gctest{
 		is $ary[$i][2], "bar", "str is alive"; # ruby str
 	}
 
-	cmp_ok(T->count - 1000, "<=", 2, "T->count is 1000 (or 1001)")
+	cmp_ok(T->count - N, "<=", 2, "T->count is about ".N)
 ;
 	@ary = ();
 
 	GC->start;
 
-	$lambda->(); # lambda { is $i, 1000, "lambda->()" };
+	$lambda->(); # lambda { is $i, N, "lambda->()" };
 
 	GC->start;
 
@@ -110,18 +110,18 @@ sub gctest{
 
 	{
 		my @a;
-		for(1 .. 1000){
+		for(1 .. N){
 			my $h = Hash->new;
 			push @a, $h;
 
 			$h->store('foo', T->new());
 		}
 
-		cmp_ok(T->count - 1000, '<=', 2, "T's object is alive (befor GC)");
+		cmp_ok(T->count - N, '<=', 2, "T's object is alive (befor GC)");
 
 		GC->start;
 
-		cmp_ok(T->count - 1000, '<=', 2, "T's object is alive (after GC)");
+		cmp_ok(T->count - N, '<=', 2, "T's object is alive (after GC)");
 
 	}
 

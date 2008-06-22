@@ -1,5 +1,10 @@
 Revision history for Ruby.pm
 
+0.03 Sat Jun 21 09:36:06 2008
+	- remove LVALUE hacks
+	- add new instance valiable interface
+	- fix some bugs
+
 0.02 Fri Jun 20 16:26:01 2008
 	- doesn't register non-pointer VALUEs
 	- fix a possible syntax error (aTHX, -> aTHX_)

@@ -59,7 +59,7 @@ BEGIN{
 
 	is($o->get_foo, true);
 
-	$o->foo = 0xBeef;
+	$o->set_foo(0xBeef);
 	is($o->foo, 0xBeef, "call std attr accessor");
 	is($o->get_foo, 0xBeef);
 }

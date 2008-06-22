@@ -2,9 +2,9 @@
 use warnings;
 use strict;
 
-use Test::More tests => 43;
+use Test::More tests => 49;
 
-BEGIN{ use_ok('Ruby') }
+BEGIN{ use_ok('Ruby', ':DEFAULT', 'String') }
 
 use IO::Handle;
 use SelectSaver;
@@ -31,6 +31,11 @@ use SelectSaver;
 	p "foo";
 
 	is $s, qq{"foo"\n}, "p() to the default filehandle";
+
+	p String("bar\n");
+
+	is $s, qq{"foo"\n"bar\\n"\n};
+
 }
 
 no warnings 'io';
@@ -74,6 +79,10 @@ io.puts("bar");
 
 is io.pos, 8, "pos";
 
+ok io.flush, "flush";
+
+ok io.inspect =~ /RDWR/, "inspect";
+
 io.rewind;
 
 is(io.gets, "foo\n", "putc/puts/rewind/gets");
@@ -83,16 +92,21 @@ io.seek(0, IO::SEEK_SET);
 
 is(io.pos, 0, "seek/pos");
 
+io.lineno = 0;
 
 io.each { |line|
 	ok line, "each";
 }
+is io.lineno, 2, "lineno";
 
-io.pos = 0;
 
-is(io.pos, 0, "pos=");
+io.pos = 2;
+
+is(io.pos, 2, "pos=");
 
 io.rewind;
+
+is(io.lineno, 0, "rewind() reset lineno");
 
 is(io.read(), "foo\nbar\n", "read all");
 
@@ -112,6 +126,13 @@ rubyio.close;
 io.close;
 
 ok(io.closed?, "close/closed?");
+
+begin
+	io.getc;
+rescue IOError
+	pass "evil fh";
+end
+
 
 Perl.open("foo", "<:crlf") do |io|
 	a = io.readlines;

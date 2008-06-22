@@ -525,9 +525,8 @@ static VALUE
 pio_rewind(VALUE self)
 {
 	dTHX;
-	PerlIO* fp = PIOFP(self);
-
-	PerlIO_rewind(fp);
+	PerlIO_rewind(PIOFP(self));
+	IoLINES(PIO(self)) = 0;
 
 	return self;
 }

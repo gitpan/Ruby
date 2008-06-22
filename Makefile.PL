@@ -107,6 +107,9 @@ WriteMakefile(
 
 	AUTHOR       => 'Goro Fuji',
 	LICENSE      => 'perl',
+
+
+    clean               => { FILES => 'Ruby-* *.gcov *.gcda *.gcno' },
 );
 
 

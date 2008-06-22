@@ -9,8 +9,11 @@
 static ID id_to_f;
 static ID id_to_i;
 static ID id_new;
+static ID id_equals;
 
-XS(XS_Ruby_VALUE_new); /* -Wmissing-prototypes */
+
+ID plrb_id_call_from_perl;
+
 XS(XS_Ruby_VALUE_new)
 {
 	dVAR; dXSARGS;
@@ -25,7 +28,7 @@ XS(XS_Ruby_VALUE_new)
 	 */
 	selfsv = ST(0);
 
-	result = plrb_funcall_protect(ruby_self(selfsv), id_new, (items - 1), &ST(1));
+	result = Funcall(ruby_self(selfsv), id_new, (items - 1), &ST(1));
 
 	ST(0) = sv_newmortal();
 
@@ -34,6 +37,262 @@ XS(XS_Ruby_VALUE_new)
 	XSRETURN(1);
 }
 
+
+XS(XS_Ruby_function_dispatcher)
+{
+	dXSARGS;
+	VALUE result;
+	HV* stash = GvSTASH(CvGV(cv));
+	VALUE pkgobj = plrb_get_package(HvNAME(stash));
+
+	rb_ivar_set(pkgobj, plrb_id_call_from_perl, ID2SYM((ID)XSANY.any_iv));
+
+	result = Funcall(pkgobj, (ID)XSANY.any_iv, items, &ST(0));
+
+	if(GIMME_V != G_VOID){
+		ST(0) = VALUE2SV(result);
+		XSRETURN(1);
+	}
+	else{
+		XSRETURN_EMPTY;
+	}
+}
+
+XS(XS_Ruby_method_dispatcher)
+{
+	dXSARGS;
+	VALUE self;
+	VALUE result;
+	ID method = (ID)XSANY.any_iv;
+
+	if(items == 0) croak("Not enough arguments for %s", rb_id2name(method));
+
+	self   = ruby_self(ST(0));
+	result = Funcall(self, method, (items - 1), &ST(1));
+
+	if(GIMME_V != G_VOID){
+		ST(0) = VALUE2SV(result);
+		XSRETURN(1);
+	}
+	else{
+		XSRETURN_EMPTY;
+	}
+}
+
+XS(XS_Ruby_class_holder)
+{
+	dXSARGS;
+
+	PERL_UNUSED_VAR(items);
+
+	ST(0) = VALUE2SV((VALUE)XSANY.any_ptr);
+	XSRETURN(1);
+}
+
+
+/* 
+   "OVERLOAD:" keyword is broken (as of xsubpp v1.9508),
+*/
+
+
+XS(XS_Ruby_op_eqne);
+XS(XS_Ruby_op_eqne)
+{
+	dXSARGS;
+	dXSI32; /* I32 ix */
+
+	SV* lhs;
+	SV* rhs;
+	int result;
+
+	if(items != 3) croak("Wrong number of arguments");
+
+	if(!SvTRUE(ST(2))){
+		lhs = ST(0);
+		rhs = ST(1);
+	}
+	else{
+		rhs = ST(0);
+		lhs = ST(1);
+	}
+
+	result = RTEST(Funcall(SV2VALUE(lhs), id_equals, 1, &rhs)) ? ix : !ix;
+
+	ST(0) = result ? &PL_sv_yes : &PL_sv_no;
+
+	XSRETURN(1);
+}
+
+XS(XS_Ruby_op_unary);
+XS(XS_Ruby_op_unary)
+{
+	dXSARGS;
+	ID op = (ID) XSANY.any_iv;
+	VALUE RETVAL;
+
+	if(items != 3) croak("Wrong number of arguments");
+
+	RETVAL = Funcall(SV2VALUE(ST(0)), op, 0, NULL);
+
+	ST(0) = VALUE2SV(RETVAL);
+	XSRETURN(1);
+}
+
+XS(XS_Ruby_op_transfunc_unary);
+XS(XS_Ruby_op_transfunc_unary)
+{
+	dXSARGS;
+	ID op = (ID) XSANY.any_iv;
+	VALUE RETVAL;
+
+	if(items != 3) croak("Wrong number of arguments");
+
+	RETVAL = Funcall(rb_mMath, op, 1, &ST(0));
+
+	ST(0) = VALUE2SV(RETVAL);
+	XSRETURN(1);
+}
+
+
+XS(XS_Ruby_op_binary);
+XS(XS_Ruby_op_binary)
+{
+	dXSARGS;
+	ID op = (ID) XSANY.any_iv;
+	SV* lhs;
+	SV* rhs;
+	VALUE RETVAL;
+
+	if(items != 3) croak("Wrong number of arguments");
+
+	if(!SvTRUE(ST(2))){
+		lhs = ST(0);
+		rhs = ST(1);
+	}
+	else{
+		rhs = ST(0);
+		lhs = ST(1);
+	}
+
+	RETVAL = Funcall(SV2VALUE(lhs), op, 1, &rhs);
+
+	ST(0) = VALUE2SV(RETVAL);
+
+	XSRETURN(1);
+}
+
+XS(XS_Ruby_op_transfunc_binary);
+XS(XS_Ruby_op_transfunc_binary)
+{
+	dXSARGS;
+	ID op = (ID) XSANY.any_iv;
+	SV* args[2];
+	VALUE RETVAL;
+
+	if(items != 3) croak("Wrong number of arguments");
+
+	if(!SvTRUE(ST(2))){
+		args[0] = ST(0);
+		args[1] = ST(1);
+	}
+	else{
+		args[1] = ST(0);
+		args[0] = ST(1);
+	}
+
+	RETVAL = Funcall(rb_mMath, op, 2, args);
+
+	ST(0) = VALUE2SV(RETVAL);
+	XSRETURN(1);
+}
+
+#define DEFINE_OPERATOR_AS(pl_op, rb_op, optype) do{\
+		cv = newXS("Ruby::Object::(" pl_op, CAT2(XS_Ruby_op_, optype), file);\
+		XSANY.any_iv = (IV)rb_intern(rb_op);\
+	} while(0)
+
+#define DEFINE_OPERATOR(op,optype) DEFINE_OPERATOR_AS(op, op, optype)
+
+inline static void
+register_overload(pTHX)
+{
+	register char* file = __FILE__;
+	register CV* cv;
+	GV* gv;
+
+	id_equals  = rb_intern("==");
+
+	plrb_id_call_from_perl = rb_intern("call_from_perl");
+
+	/* copy constructor */
+	gv = gv_fetchpv("Ruby::Object::(=", TRUE, SVt_PVGV);
+	sv_setsv((SV*)gv, sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::clone", TRUE))));
+
+	/* stringify */
+	gv = gv_fetchpv("Ruby::Object::(\"\"", TRUE, SVt_PVGV);
+	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::stringify", TRUE))));
+
+	/* numify */
+	gv = gv_fetchpv("Ruby::Object::(0+", TRUE, SVt_PVGV);
+	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::numify", TRUE))));
+
+	/* boolify */
+	gv = gv_fetchpv("Ruby::Object::(bool", TRUE, SVt_PVGV);
+	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::boolify", TRUE))));
+
+	/* codify */
+	gv = gv_fetchpv("Ruby::Object::(&{}", TRUE, SVt_PVGV);
+	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::codify", TRUE))));
+
+	/* ivar table */
+	gv = gv_fetchpv("Ruby::Object::(%{}", TRUE, SVt_PVGV);
+	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::_as_ivar_hash", TRUE))));
+
+	/* equals */
+	cv = newXS("Ruby::Object::(==", XS_Ruby_op_eqne, file);
+	XSANY.any_i32 = TRUE;
+
+	cv = newXS("Ruby::Object::(!=", XS_Ruby_op_eqne, file);
+	XSANY.any_i32 = FALSE;
+
+	/* xs operators */
+
+	DEFINE_OPERATOR("+", binary);
+	DEFINE_OPERATOR("-", binary);
+	DEFINE_OPERATOR("*", binary);
+	DEFINE_OPERATOR("/", binary);
+
+	DEFINE_OPERATOR("%", binary);
+	DEFINE_OPERATOR("**",binary);
+	DEFINE_OPERATOR("<<",binary);
+	DEFINE_OPERATOR(">>",binary);
+
+	DEFINE_OPERATOR("~", unary);
+	DEFINE_OPERATOR("|", binary);
+	DEFINE_OPERATOR("&", binary);
+	DEFINE_OPERATOR("^", binary);
+
+	DEFINE_OPERATOR("<=>", binary);
+	DEFINE_OPERATOR("<",   binary);
+	DEFINE_OPERATOR("<=",  binary);
+	DEFINE_OPERATOR(">",   binary);
+	DEFINE_OPERATOR(">=",  binary);
+
+	DEFINE_OPERATOR_AS("neg", "-@", unary);
+	DEFINE_OPERATOR_AS("int", "to_i", unary);
+
+	DEFINE_OPERATOR("abs", unary);
+
+	DEFINE_OPERATOR("atan2", transfunc_binary);
+	DEFINE_OPERATOR("cos",   transfunc_unary);
+	DEFINE_OPERATOR("sin",   transfunc_unary);
+	DEFINE_OPERATOR("exp",   transfunc_unary);
+	DEFINE_OPERATOR("log",   transfunc_unary);
+	DEFINE_OPERATOR("sqrt",  transfunc_unary);
+
+}
+
+/* used in typemap */
 static ID
 sv2id(pTHX_ SV* sv)
 {
@@ -90,10 +349,14 @@ PROTOTYPES: DISABLE
 
 BOOT:
 	plrb_initialize(aTHX);
+	register_overload(aTHX);
 	id_to_f    = rb_intern("to_f");
 	id_to_i    = rb_intern("to_i");
 	id_new     = rb_intern("new");
 	newXS("Ruby::Object::new", XS_Ruby_VALUE_new, __FILE__);
+	newCONSTSUB(NULL, "Ruby::nil",   newSVvalue(Qnil));
+	newCONSTSUB(NULL, "Ruby::true",  newSVvalue(Qtrue));
+	newCONSTSUB(NULL, "Ruby::false", newSVvalue(Qfalse));
 
 
 void
@@ -101,8 +364,6 @@ END(...)
 CODE:
 	PERL_UNUSED_ARG(items);
 	plrb_finalize(aTHX);
-
-MODULE = Ruby	PACKAGE = Ruby
 
 
 VALUE
@@ -173,6 +434,43 @@ OUTPUT:
 
 MODULE = Ruby	PACKAGE = Ruby::Object
 
+SV*
+_as_ivar_hash(obj, rhs, flag)
+	SV* obj
+PREINIT:
+	HV* ivtbl = newHV();
+CODE:
+	sv_magic((SV*)ivtbl, obj, PERL_MAGIC_tied, Nullch, 0); /* tie */
+	RETVAL = newRV_noinc((SV*)ivtbl);
+OUTPUT:
+	RETVAL
+
+void
+FIRSTKEY(...)
+ALIAS: NEXTKEY = 1
+CODE:
+	PERL_UNUSED_ARG(items);
+	PERL_UNUSED_VAR(ix);
+	/* empty */
+
+VALUE
+FETCH(obj, ivar)
+	VALUE obj
+	ID   ivar
+CODE:
+	RETVAL = rb_ivar_get(obj, ivar);
+OUTPUT:
+	RETVAL
+
+void
+STORE(obj, ivar, val)
+	VALUE obj
+	ID    ivar
+	SV*   val
+CODE:
+	rb_ivar_set(obj, ivar, SV2VALUE(val));
+
+
 VALUE
 clone(obj, ...)
 	VALUE obj
@@ -219,12 +517,12 @@ CODE:
 			if(depth > 3) goto error;
 
 			if(rb_respond_to(v, id_to_f)){
-				v = plrb_funcall_protect(v, id_to_f, 0, NULL);
+				v = Funcall(v, id_to_f, 0, NULL);
 				depth++;
 				goto numsv;
 			}
 			else if(rb_respond_to(v, id_to_i)){
-				v = plrb_funcall_protect(v, id_to_i, 0, NULL);
+				v = Funcall(v, id_to_i, 0, NULL);
 				depth++;
 				goto numsv;
 			}
@@ -257,7 +555,7 @@ send(obj, method, ...)
 	VALUE obj
 	ID    method
 CODE:
-	RETVAL = plrb_funcall_protect(obj, method, items - 2, &ST(2));
+	RETVAL = Funcall(obj, method, items - 2, &ST(2));
 OUTPUT:
 	RETVAL
 
@@ -328,7 +626,7 @@ CODE:
 	/* package */
 	pkg  = (items >= 2 && SvOK(ST(1))) ? ST(1)             : &PL_sv_undef;
 	/* file */
-	file = (items >= 3 && SvOK(ST(2))) ? SvPV_nolen(ST(2)) : "(eval)";
+	file = (items >= 3 && SvOK(ST(2))) ? SvPV_nolen(ST(2)) : "(ruby eval)";
 	/* line */
 	line = (items >= 4 && SvOK(ST(3))) ? SvIV      (ST(3)) : 1;
 
@@ -404,7 +702,7 @@ CODE:
 
 	CvXSUBANY(RETVAL).any_iv = (IV)ruby_name;
 
-	if(ix == METHOD_DISPATCHER) CvLVALUE_on(RETVAL);
+	/*if(ix == METHOD_DISPATCHER) CvLVALUE_on(RETVAL);*/
 
 	if(SvOK(prototype)){
 		STRLEN len;

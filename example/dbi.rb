@@ -1,12 +1,9 @@
 #!perl -w
+use DBI;
+use Config qw(%Config);
+$| = 1; # autoflush
 use Ruby::Run;
-
 puts "DBI demo";
-
-
-Perl.eval('use DBI');
-Perl.eval('use Config qw(%Config)');
-Perl.eval('$| = 1');
 
 pcfg = Perl["%Config"];
 

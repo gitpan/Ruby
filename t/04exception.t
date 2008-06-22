@@ -3,11 +3,11 @@
 use warnings;
 use strict;
 
-use Test::More tests => 25;
+use Test::More tests => 26;
 
 BEGIN{ use_ok('Ruby'); }
 
-use Ruby ':DEFAULT', qw(raise String rb_c lambda(&)),
+use Ruby ':DEFAULT', qw(raise String rb_c lambda(&) catch throw),
 	-class => qw(Kernel);
 
 eval{
@@ -104,6 +104,13 @@ eval{
 };
 ok($rb_errinfo->kind_of('LocalJumpError'), "unexpected break");
 
+eval{
+	catch 'foo', sub{
+		throw 'foo';
+	};
+};
+ok($rb_errinfo->kind_of('LocalJumpError'), "catch/throw");
+
 
 eval{
 	Kernel->exit();
@@ -132,4 +139,6 @@ eval{
 ok($rb_errinfo->kind_of('TypeError'), "assigment non-exeption into \$!");
 
 
-pass "test end";
+END{
+	pass "test end";
+}

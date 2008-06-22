@@ -1,6 +1,6 @@
-#!perl -MRuby::Run
-
-Perl.eval('use LWP');
+#!perl
+use LWP;
+use Ruby::Run;
 
 ua = Perl["LWP::UserAgent"].new
 
@@ -11,4 +11,3 @@ puts "HEAD #{req.uri}";
 res = ua.request(req)
 
 puts res.headers.as_string
-^

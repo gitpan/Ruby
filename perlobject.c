@@ -617,7 +617,7 @@ plrb_to_ref(VALUE self)
 	dTHX;
 	SV* sv = valueSV(self);
 
-	return any_new_noinc(newRV(sv));
+	return any_new_noinc(newRV_inc(sv));
 }
 
 static VALUE
@@ -1064,7 +1064,7 @@ plrb_scalar_send(int argc, VALUE* argv, VALUE self)
 {
 	dTHX;
 	/*SV* sv = valueSV(self);*/
-	SV* cv;
+	SV* sv;
 	VALUE method;
 
 	if(argc == 0){
@@ -1073,11 +1073,10 @@ plrb_scalar_send(int argc, VALUE* argv, VALUE self)
 
 	method = argv[0];
 
-	cv = (SV*)get_cv(rb_id2name(rb_to_id(method)), TRUE);
-
+	sv = newSVpv(rb_id2name(rb_to_id(method)), 0);
 	argv[0] = self;
 
-	return plrb_call_sv(self, cv, G_METHOD, argc, argv);
+	return plrb_call_sv(self, sv, G_METHOD, argc, argv);
 }
 
 

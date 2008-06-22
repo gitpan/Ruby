@@ -3,14 +3,15 @@
 use warnings FATAL => 'all';
 use strict;
 
-use Test::More tests => 150;
+use Test::More tests => 154;
 
 BEGIN{ use_ok('Ruby', ':DEFAULT') }
 
 use Ruby -function => qw(rb_const Rational Float Integer String lambda(&) rb_c),
 	-require => 'rational',
-	-class => 'GC', 'String',
-	-module => 'Kernel';
+	-class => 'GC', 'String', 'Array',
+	-module => 'Kernel',
+	-alias => [make => '[]'];
 
 is(rb_const(RUBY_VERSION), $Ruby::Version, 'RUBY_VERSION eq $Ruby::Version');
 
@@ -36,7 +37,8 @@ ok(nil->kind_of('Object'), "kind_of");
 is nil->send("inspect"), "nil", "send";
 is nil->inspect(), "nil", "NilClass#inspect";
 
-is nil->object_id, nil->send("object_id"), "funcall";
+is nil->object_id, nil->send("object_id"), "funcall with string";
+is nil->object_id, nil->send( String("object_id")->to_sym ), "funcall with symbol";
 
 nil->class->alias('is_nil', 'nil?');
 ok nil->is_nil, "alias";
@@ -144,7 +146,9 @@ isa_ok sin(Float(100)), "Ruby::Object", "sin()";
 isa_ok cos(Float(100)), "Ruby::Object", "cos()";
 isa_ok exp(Float(100)), "Ruby::Object", "exp()";
 isa_ok log(Float(100)), "Ruby::Object", "log()";
-isa_ok atan2(Float(1), Float(1)), "Ruby::Object", "atan2()";
+isa_ok atan2(Float(1), Float(1)), "Ruby::Object", "atan2(R::F, R::F)";
+isa_ok atan2(Float(1), 1.0), "Ruby::Object", "atan2(R::F, P::F)";
+isa_ok atan2(1.0, Float(1)), "Ruby::Object", "atan2(P::F, R::F)";
 
 my $i = Integer(10);
 
@@ -238,6 +242,7 @@ is(Kernel::->class, rb_c(Module), "import module");
 is(String::->class, rb_c(Class),  "import class");
 is(String::->new('')->class, rb_c(String), "new");
 
+is_deeply( Array->make(1 .. 1000)->to_perl, [1 .. 1000], 'call with many arguments');
 
 # rubyify / to_perl
 

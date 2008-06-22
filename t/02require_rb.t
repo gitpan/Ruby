@@ -9,7 +9,7 @@ BEGIN{ use_ok('Ruby', qw(:DEFAULT Integer Rational Complex), -module => qw(Math)
 
 ok  eval{ rb_require('rational.rb'); },  q{rb_require 'rational.rb'};
 ok  eval{ rb_require('complex.rb');  },  q{rb_require 'complex.rb'};
-ok !eval{ rb_require('notfound.rb'); },  q{rb_require 'notfound.rb'};
+ok !eval{ rb_require('notfound.rb'); },  q{rb_require 'notfound.rb' -> fatal};
 
 my $i = Integer(1);
 my $r = Rational($i);

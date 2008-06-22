@@ -27,17 +27,6 @@ VALUE plrb_root;  /* object register */
 
 static VALUE name2class;
 
-static SV* sv_nil;
-static SV* sv_true;
-static SV* sv_false;
-
-static ID id_ret_tab;
-
-ID plrb_id_call_from_perl;
-
-static void
-register_overload(pTHX);
-
 static void
 plrb_local_jump_error(int e);
 
@@ -45,6 +34,7 @@ void
 plrb_initialize(pTHX)
 {
 	VALUE rbversion;
+	CV* cv;
 	SV* core_version_sv = get_sv("Ruby::Version", GV_ADD | GV_ADDMULTI);
 
 
@@ -92,21 +82,21 @@ plrb_initialize(pTHX)
 	InitRegister();
 
 	rbversion = rb_obj_as_string(rb_const_get(rb_cObject, rb_intern("RUBY_VERSION")));
+	if(!strEQ(RSTRING_PTR(rbversion), STRINGIFY(MY_RUBY_VERSION))){
+		croak("libruby version %s does not match Ruby.pm object version %s",
+			RSTRING_PTR(rbversion), STRINGIFY(MY_RUBY_VERSION));
+	}
 	sv_setpvn(core_version_sv, RSTRING_PTR(rbversion), RSTRLEN(rbversion));
 
+	cv = newXS("Ruby::Object::__CLASS__", XS_Ruby_class_holder, __FILE__);
+	CvXSUBANY(cv).any_ptr = (void*)rb_cObject;
 
 	D(DB_INITFINAL, ("Ruby.pm:     Init_perl()"));
-	Init_perl(aTHX);    /* Perl::   */
-	Init_perlio(aTHX);  /* Perl::IO */
-
-	register_overload(aTHX);
-
-	newCONSTSUB(NULL, "Ruby::nil",   sv_nil   = newSVvalue(Qnil));
-	newCONSTSUB(NULL, "Ruby::true",  sv_true  = newSVvalue(Qtrue));
-	newCONSTSUB(NULL, "Ruby::false", sv_false = newSVvalue(Qfalse));
+	Init_perl(aTHX);    /* Perl::*  in perlobject.c */
+	Init_perlio(aTHX);  /* Perl::IO in perlio.c */
 
 	/* install rb_argv */
-	if(0)
+#if 0
 	{
 		AV* argv = GvAV(PL_argvgv);
 		int i;
@@ -120,9 +110,7 @@ plrb_initialize(pTHX)
 			rb_ary_push(rb_argv, v);
 		}
 	}
-
-	/* LVALUE hack */
-	id_ret_tab = rb_intern("__retval__");
+#endif
 
 	D(DB_INITFINAL, ("Ruby.pm: <-  initialize"));
 }
@@ -137,8 +125,6 @@ plrb_finalize(pTHX)
 
 	D(DB_INITFINAL, ("Ruby.pm: <-  finalize"));
 }
-
-XS(XS_Ruby_class_holder);
 
 inline bool
 plrb_is_value(pTHX_ SV* sv)
@@ -188,16 +174,6 @@ plrb_value2sv(pTHX_ VALUE value)
 	if(isSV(value)){
 		return valueSV(value);
 	}
-
-	switch(value){
-	case Qnil:
-		return sv_nil;
-	case Qtrue:
-		return sv_true;
-	case Qfalse:
-		return sv_false;
-	}
-	
 	return sv_2mortal(new_sv_value(value, "Ruby::Object"));
 }
 SV*
@@ -243,7 +219,7 @@ plrb_sv_set_value(pTHX_ SV* sv, VALUE value, const char* pkg)
 	if(!SPECIAL_CONST_P(value)){ /* value is pointer */
 		obj_id = rb_obj_id(value);
 
-		reg = GetRegister(obj_id); /* XXX: SEGV as of 0.01 */
+		reg = GetRegister(obj_id);
 
 		if(NIL_P(reg)){
 			NewRegEnt(reg, value, INT2FIX(1));
@@ -360,7 +336,7 @@ plrb_ruby_class(pTHX_ const char* name, int check)
 
 	if(check){
 		fatal:
-		croak("Can't call method on uninstalled class %s", name);
+		croak("Can't call method on non-ruby class \"%s\"", name);
 	}
 
 
@@ -439,9 +415,7 @@ plrb_raise(VALUE etype, const char* format, ...)
 
 
 
-typedef
-struct
-plrb_protect_arg{
+typedef struct plrb_protect_arg{
 	plrb_func_t func;
 	int   argc;
 	VALUE argv[3];
@@ -468,6 +442,7 @@ plrb_protect_helper(plrb_protect_arg* arg)
 	case 3:
 		return ((f3)func)(argv[0], argv[1], argv[2]);
 	}
+	assert(arg->argc <= 3);
 	return Qnil; /* not reached */
 }
 
@@ -483,7 +458,7 @@ plrb_protect(plrb_func_t func, int argc, ...)
 	va_list args;
 
 	if(argc > 3){
-		rb_bug("Too meny arguments for %s", "protect");
+		rb_bug("Too meny arguments for %s", "protect()");
 	}
 
 	arg.func = func;
@@ -525,9 +500,7 @@ plrb_protect1(plrb_func_t func, VALUE arg1)
 	return result;
 }
 
-typedef
-struct
-{
+typedef struct {
 	VALUE   recv;
 	ID      method;
 	int     argc;
@@ -535,7 +508,7 @@ struct
 } funcall_arg;
 
 static VALUE
-plrb_funcaller(volatile funcall_arg* arg)
+plrb_funcaller(funcall_arg* arg)
 {
 	return rb_funcall2(arg->recv, arg->method, arg->argc, arg->argv); /* XXX: SEGV as of 0.02 */
 }
@@ -568,9 +541,8 @@ do_funcall_protect(pTHX_ VALUE recv, ID method, int argc, VALUE* argv, int has_p
 }
 
 VALUE
-plrb_funcall_protect(VALUE recv, ID method, int argc, SV** argv)
+plrb_funcall_protect(pTHX_ VALUE recv, ID method, int argc, SV** argv)
 {
-	dTHX;
 	volatile VALUE argbuf;
 	VALUE smallbuf[4];
 	VALUE* args;
@@ -596,153 +568,6 @@ plrb_funcall_protect(VALUE recv, ID method, int argc, SV** argv)
 	return do_funcall_protect(aTHX_ recv, method, argc, args, has_proc);
 }
 
-struct plrb_attr
-{
-	VALUE recv;
-	ID    getter;
-	ID    setter;
-};
-
-static int
-plrb_mg_attr_set(pTHX_ SV* sv, MAGIC* mg)
-{
-	struct plrb_attr* attr = (struct plrb_attr*)mg->mg_ptr;
-	VALUE val;
-
-	if(!attr->setter){ /* first call */
-		const char* getter = rb_id2name(attr->getter);
-		STRLEN len = strlen(getter)+1;
-
-		char smallbuf[128];
-		char* buf;
-		volatile VALUE strbuf;
-
-		if(len < sizeof(smallbuf)){
-			buf = smallbuf;
-		}
-		else{
-			strbuf = rb_str_buf_new((long)len);
-			buf = RSTRING_PTR(strbuf);
-		}
-
-		/* "attr" + "=" + "\0" */
-
-		memcpy(buf, getter, len-1);
-		buf[len-1] = '=';
-		buf[len]   = '\0';
-
-		attr->setter = rb_intern(buf);
-	}
-
-	val = SV2VALUE(sv);
-
-	do_funcall_protect(aTHX_ attr->recv, attr->setter, 1, &val, FALSE);
-
-	return 0;
-}
-
-
-MGVTBL plrb_attr_vtbl = {
-	NULL, /* mg_get */
-	plrb_mg_attr_set,
-	NULL, /* mg_len */
-	NULL, /* mg_clear */
-	NULL, /* mg_free */
-	NULL, /* mg_copy */
-	NULL, /* mg_dup */
-	NULL  /* mg_local */
-};
-
-XS(XS_Ruby_function_dispatcher);
-XS(XS_Ruby_function_dispatcher)
-{
-	dXSARGS;
-	VALUE result;
-	HV* stash = GvSTASH(CvGV(cv));
-	VALUE pkgobj = plrb_get_package(HvNAME(stash));
-
-	rb_ivar_set(pkgobj, plrb_id_call_from_perl, ID2SYM((ID)XSANY.any_iv));
-
-	result = plrb_funcall_protect(pkgobj, (ID)XSANY.any_iv, items, &ST(0));
-
-	if(GIMME_V != G_VOID){
-		ST(0) = VALUE2SV(result);
-		XSRETURN(1);
-	}
-	else{
-		XSRETURN_EMPTY;
-	}
-}
-
-static VALUE
-obj_new(void)
-{
-	return rb_obj_alloc(rb_cObject);
-}
-
-XS(XS_Ruby_method_dispatcher);
-XS(XS_Ruby_method_dispatcher)
-{
-	dXSARGS;
-	VALUE self;
-	VALUE result;
-	ID method = (ID)XSANY.any_iv;
-
-	if(items == 0) croak("Not enough arguments for %s", rb_id2name(method));
-
-	self   = ruby_self(ST(0));
-	result = plrb_funcall_protect(self, method, (items - 1), &ST(1));
-
-	if(GIMME_V != G_VOID){
-		VALUE ret_tab;
-		ID retval_id = method;
-		VALUE v;
-		SV* sv;
-		struct plrb_attr attr = { self, method, (ID)0 };
-
-		/* obj[ret_tab][result] = result  */
-
-
-		if(OBJ_FROZEN(self) || items != 1){
-			sv = VALUE2SV(result);
-		}
-		else{
-			ret_tab = rb_ivar_get_defaultf(self, id_ret_tab, obj_new);
-
-			if(NIL_P(v = rb_attr_get(ret_tab, retval_id))){
-
-				sv = newSVvalue(result);
-
-				rb_ivar_set(ret_tab, retval_id, v = any_new_noinc(sv));
-
-				sv_magicext(sv, NULL, PERL_MAGIC_ext, &plrb_attr_vtbl, (char*)&attr, sizeof(attr));
-
-			}
-			else{
-				sv = valueSV(v);
-
-				sv_set_value2sv(sv, result);
-			}
-		}
-
-		ST(0) = sv;
-
-		XSRETURN(1);
-	}
-	else{
-		XSRETURN_EMPTY;
-	}
-}
-
-XS(XS_Ruby_class_holder)
-{
-	dXSARGS;
-
-	PERL_UNUSED_VAR(items);
-
-	ST(0) = VALUE2SV((VALUE)XSANY.any_ptr);
-	XSRETURN(1);
-}
 
 void
 plrb_install_class(pTHX_ const char* pkg, VALUE klass)
@@ -843,200 +668,38 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 	return result;
 }
 
-/* !!! "OVERLOAD:" keyword is broken (xsubpp v1.9508) !!! */
+/* utilities */
 
-static ID id_equals;
-
-XS(XS_Ruby_op_eqne);
-XS(XS_Ruby_op_eqne)
+VALUE
+rb_ivar_get_defaultv(VALUE obj, ID key, VALUE defaultvalue)
 {
-	dXSARGS;
-	dXSI32;
+	VALUE val = rb_attr_get(obj, key);
 
-	SV* lhs;
-	SV* rhs;
-	int result;
-
-	if(items != 3) croak("Wrong number of arguments");
-
-	if(!SvTRUE(ST(2))){
-		lhs = ST(0);
-		rhs = ST(1);
+	if(NIL_P(val)){
+		val = defaultvalue;
+		rb_ivar_set(obj, key, val);
 	}
-	else{
-		rhs = ST(0);
-		lhs = ST(1);
-	}
-
-	result = RTEST(plrb_funcall_protect(SV2VALUE(lhs), id_equals, 1, &rhs)) ? ix : !ix;
-
-	ST(0) = result ? &PL_sv_yes : &PL_sv_no;
-
-	XSRETURN(1);
+	return val;
 }
 
-XS(XS_Ruby_op_unary);
-XS(XS_Ruby_op_unary)
+VALUE
+rb_ivar_get_defaultf(VALUE obj, ID key, defaultf_t defaultfunc)
 {
-	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
-	VALUE RETVAL;
-
-	if(items != 3) croak("Wrong number of arguments");
-
-	RETVAL = plrb_funcall_protect(SV2VALUE(ST(0)), op, 0, NULL);
-
-	ST(0) = VALUE2SV(RETVAL);
-	XSRETURN(1);
+	VALUE val = rb_attr_get(obj, key);
+	if(NIL_P(val)){
+		val = defaultfunc();
+		rb_ivar_set(obj, key, val);
+	}
+	return val;
 }
 
-XS(XS_Ruby_op_transfunc_unary);
-XS(XS_Ruby_op_transfunc_unary)
+VALUE
+plrb_str_new_sv(pTHX_ SV* sv)
 {
-	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
-	VALUE RETVAL;
-
-	if(items != 3) croak("Wrong number of arguments");
-
-	RETVAL = plrb_funcall_protect(rb_mMath, op, 1, &ST(0));
-
-	ST(0) = VALUE2SV(RETVAL);
-	XSRETURN(1);
-}
-
-
-XS(XS_Ruby_op_binary);
-XS(XS_Ruby_op_binary)
-{
-	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
-	SV* lhs;
-	SV* rhs;
-	VALUE RETVAL;
-
-	if(items != 3) croak("Wrong number of arguments");
-
-	if(!SvTRUE(ST(2))){
-		lhs = ST(0);
-		rhs = ST(1);
-	}
-	else{
-		rhs = ST(0);
-		lhs = ST(1);
-	}
-
-	RETVAL = plrb_funcall_protect(SV2VALUE(lhs), op, 1, &rhs);
-
-	ST(0) = VALUE2SV(RETVAL);
-
-	XSRETURN(1);
-}
-
-XS(XS_Ruby_op_transfunc_binary);
-XS(XS_Ruby_op_transfunc_binary)
-{
-	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
-	SV* args[2];
-	VALUE RETVAL;
-
-	if(items != 3) croak("Wrong number of arguments");
-
-	if(!SvTRUE(ST(2))){
-		args[0] = ST(0);
-		args[1] = ST(1);
-	}
-	else{
-		args[1] = ST(0);
-		args[0] = ST(1);
-	}
-
-	RETVAL = plrb_funcall_protect(rb_mMath, op, 2, args);
-
-	ST(0) = VALUE2SV(RETVAL);
-	XSRETURN(1);
-}
-
-#define DEFINE_OPERATOR_AS(pl_op, rb_op, optype) do{\
-		cv = newXS("Ruby::Object::(" pl_op, CAT2(XS_Ruby_op_, optype), file);\
-		XSANY.any_iv = (IV)rb_intern(rb_op);\
-	} while(0)
-
-#define DEFINE_OPERATOR(op,optype) DEFINE_OPERATOR_AS(op, op, optype)
-
-static void
-register_overload(pTHX)
-{
-	register char* file = __FILE__;
-	register CV* cv;
-	GV* gv;
-
-	id_equals  = rb_intern("==");
-
-	plrb_id_call_from_perl = rb_intern("call_from_perl");
-
-	/* copy constructor */
-	gv = gv_fetchpv("Ruby::Object::(=", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv, sv_2mortal(newRV((SV*)get_cv("Ruby::Object::clone", TRUE))));
-
-	/* stringify */
-	gv = gv_fetchpv("Ruby::Object::(\"\"", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV((SV*)get_cv("Ruby::Object::stringify", TRUE))));
-
-	/* numify */
-	gv = gv_fetchpv("Ruby::Object::(0+", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV((SV*)get_cv("Ruby::Object::numify", TRUE))));
-
-	/* boolify */
-	gv = gv_fetchpv("Ruby::Object::(bool", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV((SV*)get_cv("Ruby::Object::boolify", TRUE))));
-
-	/* codify */
-	gv = gv_fetchpv("Ruby::Object::(&{}", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV((SV*)get_cv("Ruby::Object::codify", TRUE))));
-
-	/* equals */
-	cv = newXS("Ruby::Object::(==", XS_Ruby_op_eqne, file);
-	XSANY.any_i32 = TRUE;
-
-	cv = newXS("Ruby::Object::(!=", XS_Ruby_op_eqne, file);
-	XSANY.any_i32 = FALSE;
-
-	/* xs operators */
-
-	DEFINE_OPERATOR("+", binary);
-	DEFINE_OPERATOR("-", binary);
-	DEFINE_OPERATOR("*", binary);
-	DEFINE_OPERATOR("/", binary);
-
-	DEFINE_OPERATOR("%", binary);
-	DEFINE_OPERATOR("**",binary);
-	DEFINE_OPERATOR("<<",binary);
-	DEFINE_OPERATOR(">>",binary);
-
-	DEFINE_OPERATOR("~", unary);
-	DEFINE_OPERATOR("|", binary);
-	DEFINE_OPERATOR("&", binary);
-	DEFINE_OPERATOR("^", binary);
-
-	DEFINE_OPERATOR("<=>", binary);
-	DEFINE_OPERATOR("<",   binary);
-	DEFINE_OPERATOR("<=",  binary);
-	DEFINE_OPERATOR(">",   binary);
-	DEFINE_OPERATOR(">=",  binary);
-
-	DEFINE_OPERATOR_AS("neg", "-@", unary);
-	DEFINE_OPERATOR_AS("int", "to_i", unary);
-
-	DEFINE_OPERATOR("abs", unary);
-
-	DEFINE_OPERATOR("atan2", transfunc_binary);
-	DEFINE_OPERATOR("cos",   transfunc_unary);
-	DEFINE_OPERATOR("sin",   transfunc_unary);
-	DEFINE_OPERATOR("exp",   transfunc_unary);
-	DEFINE_OPERATOR("log",   transfunc_unary);
-	DEFINE_OPERATOR("sqrt",  transfunc_unary);
-
+	STRLEN len;
+	const char* pv = SvPV(sv, len);
+	VALUE result =  rb_str_new(pv, (long)len);
+	S2V_INFECT(sv, result);
+	return result;
 }
 
