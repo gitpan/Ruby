@@ -11,6 +11,7 @@ static ID id_to_i;
 static ID id_new;
 static ID id_equals;
 
+#define XSANY_method ((ID)XSANY.any_ptr)
 
 ID plrb_id_call_from_perl;
 
@@ -32,7 +33,7 @@ XS(XS_Ruby_VALUE_new)
 
 	ST(0) = sv_newmortal();
 
-	sv_set_value(ST(0), result, SvPOK(selfsv) ? SvPVX(selfsv) : "Ruby::Object");
+	sv_set_value_direct(ST(0), result, SvPOK(selfsv) ? SvPVX(selfsv) : NULL);
 
 	XSRETURN(1);
 }
@@ -45,9 +46,9 @@ XS(XS_Ruby_function_dispatcher)
 	HV* stash = GvSTASH(CvGV(cv));
 	VALUE pkgobj = plrb_get_package(HvNAME(stash));
 
-	rb_ivar_set(pkgobj, plrb_id_call_from_perl, ID2SYM((ID)XSANY.any_iv));
+	rb_ivar_set(pkgobj, plrb_id_call_from_perl, ID2SYM(XSANY_method));
 
-	result = Funcall(pkgobj, (ID)XSANY.any_iv, items, &ST(0));
+	result = Funcall(pkgobj, XSANY_method, items, &ST(0));
 
 	if(GIMME_V != G_VOID){
 		ST(0) = VALUE2SV(result);
@@ -63,12 +64,11 @@ XS(XS_Ruby_method_dispatcher)
 	dXSARGS;
 	VALUE self;
 	VALUE result;
-	ID method = (ID)XSANY.any_iv;
 
-	if(items == 0) croak("Not enough arguments for %s", rb_id2name(method));
+	if(items == 0) croak("Not enough arguments for %s", GvNAME(CvGV(cv)));
 
 	self   = ruby_self(ST(0));
-	result = Funcall(self, method, (items - 1), &ST(1));
+	result = Funcall(self, XSANY_method, (items - 1), &ST(1));
 
 	if(GIMME_V != G_VOID){
 		ST(0) = VALUE2SV(result);
@@ -127,12 +127,11 @@ XS(XS_Ruby_op_unary);
 XS(XS_Ruby_op_unary)
 {
 	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
 	VALUE RETVAL;
 
 	if(items != 3) croak("Wrong number of arguments");
 
-	RETVAL = Funcall(SV2VALUE(ST(0)), op, 0, NULL);
+	RETVAL = Funcall(SV2VALUE(ST(0)), XSANY_method, 0, NULL);
 
 	ST(0) = VALUE2SV(RETVAL);
 	XSRETURN(1);
@@ -142,12 +141,11 @@ XS(XS_Ruby_op_transfunc_unary);
 XS(XS_Ruby_op_transfunc_unary)
 {
 	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
 	VALUE RETVAL;
 
 	if(items != 3) croak("Wrong number of arguments");
 
-	RETVAL = Funcall(rb_mMath, op, 1, &ST(0));
+	RETVAL = Funcall(rb_mMath, XSANY_method, 1, &ST(0));
 
 	ST(0) = VALUE2SV(RETVAL);
 	XSRETURN(1);
@@ -158,7 +156,6 @@ XS(XS_Ruby_op_binary);
 XS(XS_Ruby_op_binary)
 {
 	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
 	SV* lhs;
 	SV* rhs;
 	VALUE RETVAL;
@@ -173,8 +170,7 @@ XS(XS_Ruby_op_binary)
 		rhs = ST(0);
 		lhs = ST(1);
 	}
-
-	RETVAL = Funcall(SV2VALUE(lhs), op, 1, &rhs);
+	RETVAL = Funcall(SV2VALUE(lhs), XSANY_method, 1, &rhs);
 
 	ST(0) = VALUE2SV(RETVAL);
 
@@ -185,7 +181,6 @@ XS(XS_Ruby_op_transfunc_binary);
 XS(XS_Ruby_op_transfunc_binary)
 {
 	dXSARGS;
-	ID op = (ID) XSANY.any_iv;
 	SV* args[2];
 	VALUE RETVAL;
 
@@ -200,7 +195,7 @@ XS(XS_Ruby_op_transfunc_binary)
 		args[0] = ST(1);
 	}
 
-	RETVAL = Funcall(rb_mMath, op, 2, args);
+	RETVAL = Funcall(rb_mMath, XSANY_method, 2, args);
 
 	ST(0) = VALUE2SV(RETVAL);
 	XSRETURN(1);
@@ -208,7 +203,7 @@ XS(XS_Ruby_op_transfunc_binary)
 
 #define DEFINE_OPERATOR_AS(pl_op, rb_op, optype) do{\
 		cv = newXS("Ruby::Object::(" pl_op, CAT2(XS_Ruby_op_, optype), file);\
-		XSANY.any_iv = (IV)rb_intern(rb_op);\
+		XSANY.any_ptr = (void*)rb_intern(rb_op);\
 	} while(0)
 
 #define DEFINE_OPERATOR(op,optype) DEFINE_OPERATOR_AS(op, op, optype)
@@ -246,7 +241,7 @@ register_overload(pTHX)
 
 	/* ivar table */
 	gv = gv_fetchpv("Ruby::Object::(%{}", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::_as_ivar_hash", TRUE))));
+	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::hashify", TRUE))));
 
 	/* equals */
 	cv = newXS("Ruby::Object::(==", XS_Ruby_op_eqne, file);
@@ -435,7 +430,7 @@ OUTPUT:
 MODULE = Ruby	PACKAGE = Ruby::Object
 
 SV*
-_as_ivar_hash(obj, rhs, flag)
+hashify(obj, rhs, flag)
 	SV* obj
 PREINIT:
 	HV* ivtbl = newHV();
@@ -445,30 +440,88 @@ CODE:
 OUTPUT:
 	RETVAL
 
-void
-FIRSTKEY(...)
-ALIAS: NEXTKEY = 1
+SV*
+FIRSTKEY(obj)
+	VALUE obj
+PREINIT:
+	VALUE methods;
+	VALUE arg = Qtrue;
+	long i1, i2;
 CODE:
-	PERL_UNUSED_ARG(items);
-	PERL_UNUSED_VAR(ix);
-	/* empty */
+	methods = rb_class_instance_methods(1, &arg, CLASS_OF(obj));
+
+	/* grep{ str[0] != '=' && str[-1] '=' } @methods */
+	for (i1 = i2 = 0; i1 < RARRAY_LEN(methods); i1++) {
+		VALUE v = RARRAY_PTR(methods)[i1];
+		if(rb_type(v) == T_STRING
+			&& RSTRING_LEN(v) > 0
+			&& !isPUNCT(RSTRING_PTR(v)[ 0 ])
+			&& RSTRING_PTR(v)[RSTRING_LEN(v)-1] == '='){
+
+			if (i1 != i2) {
+				RSTRING_LEN(v)--; /* chop for '=' */
+				rb_ary_store(methods, i2, v);
+			}
+			i2++;
+		}
+	}
+
+	switch(i2){
+	case 0:
+		XSRETURN_EMPTY;
+	case 1:
+		arg = RARRAY_PTR(methods)[0];
+		break;
+	default:
+		RARRAY_LEN(methods) = i2-1;
+		arg = RARRAY_PTR(methods)[i2-1];
+		rb_ivar_set(obj, rb_intern("__perl_each__"), methods);
+	}
+	StringValue(arg);
+	RETVAL = newSVpvn(RSTRING_PTR(arg), RSTRLEN(arg));
+OUTPUT:
+	RETVAL
+
+SV*
+NEXTKEY(obj, last_key)
+	VALUE obj
+PREINIT:
+	VALUE methods;
+	VALUE v;
+CODE:
+	methods = rb_ivar_get(obj, rb_intern("__perl_each__"));
+	if(NIL_P(methods)){
+		XSRETURN_EMPTY;
+	}
+	v = RARRAY_PTR(methods)[ --RARRAY_LEN(methods) ]; /* pop */
+	if( RARRAY_LEN(methods) == 0 ){
+		rb_ivar_set(obj, rb_intern("__perl_each__"), Qnil); /* free */
+	}
+	StringValue(v);
+	RETVAL = newSVpvn(RSTRING_PTR(v), RSTRLEN(v));
+OUTPUT:
+	RETVAL
 
 VALUE
-FETCH(obj, ivar)
+FETCH(obj, attr)
 	VALUE obj
-	ID   ivar
+	SV*   attr
 CODE:
-	RETVAL = rb_ivar_get(obj, ivar);
+	RETVAL = Funcall(obj, sv2id(aTHX_ attr), 0, NULL);
 OUTPUT:
 	RETVAL
 
 void
-STORE(obj, ivar, val)
+STORE(obj, attr, val)
 	VALUE obj
-	ID    ivar
+	SV*   attr
 	SV*   val
+PREINIT:
+	SV* attr_assign;
 CODE:
-	rb_ivar_set(obj, ivar, SV2VALUE(val));
+	attr_assign = newSVpvf("%" SVf "=", attr);
+	sv_2mortal(attr_assign);
+	Funcall(obj, sv2id(aTHX_ attr_assign), 1, &val);
 
 
 VALUE
@@ -601,10 +654,12 @@ CODE:
 MODULE = Ruby	PACKAGE = Ruby
 
 void
-rubyify(SV* sv)
+rubyify(sv)
+	VALUE sv
 CODE:
 	ST(0) = sv_newmortal();
-	sv_set_value(ST(0), SV2VALUE(sv), "Ruby::Object");
+	sv_set_value_direct(ST(0), sv, NULL);
+	XSRETURN(1);
 
 VALUE
 rb_define_class(name, base)
@@ -700,7 +755,7 @@ CODE:
 
 	RETVAL = newXS(perl_name, (XSUBADDR_t)ix, __FILE__);
 
-	CvXSUBANY(RETVAL).any_iv = (IV)ruby_name;
+	CvXSUBANY(RETVAL).any_ptr = (void*)ruby_name;
 
 	/*if(ix == METHOD_DISPATCHER) CvLVALUE_on(RETVAL);*/
 

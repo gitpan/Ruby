@@ -1,5 +1,10 @@
 Revision history for Ruby.pm
 
+0.04 Wed Jun 25 14:44:34 2008
+	- change attr interface
+		(e.g. >> perl -MRuby -e '<STDIN>;p \%{rubyify(*STDIN{IO})}' <Changes)
+	- update ppport.h
+
 0.03 Sat Jun 21 09:36:06 2008
 	- remove LVALUE hacks
 	- add new instance valiable interface

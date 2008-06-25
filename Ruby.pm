@@ -8,7 +8,7 @@ use warnings;
 use Carp ();
 use XSLoader ();
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 XSLoader::load(__PACKAGE__, $VERSION);
 
@@ -39,6 +39,7 @@ our @EXPORT_OK = qw(
 	rb_const
 
 	rb_inspect
+	rb_basic_inspect
 );
 
 our %EXPORT_COMMANDS = (
@@ -247,8 +248,11 @@ sub rb_const(*){
 
 sub rb_inspect{
 	require Ruby::Inspect;
-
-	goto &Ruby::Inspect::inspect;
+	goto &Ruby::Inspect::rb_inspect;
+}
+sub rb_basic_inspect{
+	require Ruby::Inspect;
+	goto &Ruby::Inspect::rb_basic_inspect;
 }
 
 package Ruby::Object;

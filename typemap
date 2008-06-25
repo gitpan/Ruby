@@ -18,6 +18,6 @@ OUTPUT
 
 T_RUBY_VALUE
 	if(GIMME_V != G_VOID){
-		sv_set_value2sv($arg, $var);
+		sv_set_value($arg, $var);
 	}
 

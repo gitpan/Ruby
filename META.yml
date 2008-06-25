@@ -1,11 +1,11 @@
 --- #YAML:1.0
 name:                Ruby
-version:             0.03
+version:             0.04
 abstract:            Perl interface to Ruby interpreter
 license:             perl
 author:              
     - Goro Fuji
-generated_by:        ExtUtils::MakeMaker version 6.44
+generated_by:        ExtUtils::MakeMaker version 6.42
 distribution_type:   module
 requires:     
 meta-spec:

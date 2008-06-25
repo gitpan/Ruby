@@ -12,14 +12,14 @@ VALUE plrb_root;  /* object register */
 #define RemoveRegister(k) rb_hash_delete(plrb_root, k)
 
 #define NewRegEnt(reg, val, refcnt) (reg = rb_assoc_new(val, refcnt))
-#define RegEntValue(reg)  (RARRAY(reg)->ptr[0])
-#define RegEntRefcnt(reg) (RARRAY(reg)->ptr[1])
+#define RegEntValue(reg)  (RARRAY_PTR(reg)[0])
+#define RegEntRefcnt(reg) (RARRAY_PTR(reg)[1])
 
 #define RegEntRefcnt_op(reg, op) (RegEntRefcnt(reg) = INT2FIX( FIX2INT(RegEntRefcnt(reg)) op) )
 #define RegEntRefcnt_inc(reg)    (RegEntRefcnt_op(reg, +1))
 #define RegEntRefcnt_dec(reg)    (RegEntRefcnt_op(reg, -1))
 
-#define CheckJumpError(e) do{ if(e){\
+#define CheckError(e) do{ if(e){\
 		if(!NIL_P(rb_errinfo())) plrb_exc_raise(rb_errinfo());\
 		else                     plrb_local_jump_error(e);\
 	} } while(0)
@@ -88,6 +88,7 @@ plrb_initialize(pTHX)
 	}
 	sv_setpvn(core_version_sv, RSTRING_PTR(rbversion), RSTRLEN(rbversion));
 
+	/* setup baseclass */
 	cv = newXS("Ruby::Object::__CLASS__", XS_Ruby_class_holder, __FILE__);
 	CvXSUBANY(cv).any_ptr = (void*)rb_cObject;
 
@@ -126,7 +127,7 @@ plrb_finalize(pTHX)
 	D(DB_INITFINAL, ("Ruby.pm: <-  finalize"));
 }
 
-inline bool
+bool
 plrb_is_value(pTHX_ SV* sv)
 {
 	GV* gv;
@@ -158,7 +159,7 @@ plrb_is_value(pTHX_ SV* sv)
 
 
 
-inline VALUE
+VALUE
 plrb_sv2value(pTHX_ SV* sv)
 {
 	if(!sv) return Qnil;
@@ -174,23 +175,23 @@ plrb_value2sv(pTHX_ VALUE value)
 	if(isSV(value)){
 		return valueSV(value);
 	}
-	return sv_2mortal(new_sv_value(value, "Ruby::Object"));
+	return sv_2mortal(new_sv_value(value, NULL));
 }
 SV*
-plrb_sv_set_value2sv(pTHX_ SV* sv, VALUE value)
+plrb_sv_set_value(pTHX_ SV* sv, VALUE value)
 {
 	if(isSV(value)){
 		sv_setsv(sv, valueSV(value));
 	}
 	else{
-		sv_set_value(sv, value, "Ruby::Object");
+		sv_set_value_direct(sv, value, NULL);
 	}
 
 	return sv;
 }
 
 SV*
-plrb_sv_set_value(pTHX_ SV* sv, VALUE value, const char* pkg)
+plrb_sv_set_value_direct(pTHX_ SV* sv, VALUE value, const char* pkg)
 {
 	VALUE reg;
 	VALUE obj_id;
@@ -198,6 +199,10 @@ plrb_sv_set_value(pTHX_ SV* sv, VALUE value, const char* pkg)
 	if(!plrb_root){
 		warn("panic: Ruby already finalized");
 		return &PL_sv_undef;
+	}
+
+	if(!pkg){
+		pkg = "Ruby::Object";
 	}
 
 	if(!isVALUE(sv)){
@@ -242,7 +247,7 @@ plrb_newSVvalue(pTHX_ VALUE value)
 	if(isSV(value)){
 		return newSVsv(valueSV(value));
 	}
-	return new_sv_value(value, "Ruby::Object");
+	return new_sv_value(value, NULL);
 }
 
 void
@@ -261,10 +266,10 @@ plrb_delSVvalue(pTHX_ SV* sv){
 		return;
 	}
 
-	value = (VALUE)SvIVX(SvRV(sv));
+	value = SvVALUE(sv);
 	
 	if(!SPECIAL_CONST_P(value)){ /* value is pointer */
-		obj_id = rb_obj_id((VALUE)SvIVX(SvRV(sv)));
+		obj_id = rb_obj_id(value);
 		reg = GetRegister(obj_id);
 
 		if(NIL_P(reg)){
@@ -272,7 +277,7 @@ plrb_delSVvalue(pTHX_ SV* sv){
 			return;
 		}
 
-		if(RARRAY(reg)->ptr[1] == INT2FIX(1)){
+		if(RegEntRefcnt(reg) == INT2FIX(1)){
 			RemoveRegister(obj_id);
 		}
 		else{
@@ -357,18 +362,61 @@ plrb_ruby_self(pTHX_ SV* sv)
 	return k ? k : any_new(sv);
 }
 
+/* copied from eval.c (1.8.6) */
+#define TAG_RETURN	0x1
+#define TAG_BREAK	0x2
+#define TAG_NEXT	0x3
+#define TAG_RETRY	0x4
+#define TAG_REDO	0x5
+#define TAG_RAISE	0x6
+#define TAG_THROW	0x7
+#define TAG_FATAL	0x8
+#define TAG_MASK	0xf
+
+/* cf. localjump_error() in eval.c */
+#define JUMPERR_MSG "Ruby.pm: unexpected "
 static void
 plrb_local_jump_error(int e)
 {
 	VALUE exc = Qnil;
 	VALUE e_local_jump_error = rb_const_get(rb_cObject, rb_intern("LocalJumpError"));
+	const char* why;
+	const char msg[sizeof(JUMPERR_MSG "return")];
 
-	PERL_UNUSED_ARG(e);
+	switch(e){
+	case TAG_RETURN:
+		why = "return";
+		break;
+	case TAG_BREAK:
+		why = "break";
+		break;
+	case TAG_NEXT:
+		why = "next";
+		break;
+	case TAG_RETRY:
+		why = "retry";
+		break;
+	case TAG_REDO:
+		why = "redo";
+		break;
+	case TAG_RAISE:
+		why = "raise";
+		break;
+	case TAG_THROW:
+		why = "throw";
+		break;
+	case TAG_FATAL:
+		why = "fatal";
+		break;
+	default:
+		why = "jump";
+	}
+	Copy(JUMPERR_MSG, msg, sizeof(JUMPERR_MSG)-1, char);
+	Copy(why, msg+sizeof(JUMPERR_MSG)-1, strlen(why)+1, char);
+	exc = rb_exc_new2(e_local_jump_error, msg);
 
-	exc = rb_exc_new2(e_local_jump_error, "Unexpected jump");
-
-	rb_iv_set(exc, "@exit_value", Qnil);
-	rb_iv_set(exc, "@reason", ID2SYM(rb_intern(":unknown")));
+	rb_iv_set(exc, "@exit_value", INT2FIX(e));
+	rb_iv_set(exc, "@reason", ID2SYM(rb_intern(why)));
 
 	plrb_exc_raise(exc);
 }
@@ -474,7 +522,7 @@ plrb_protect(plrb_func_t func, int argc, ...)
 
 	result = rb_protect((plrb_func_t)plrb_protect_helper, (VALUE)&arg, &e);
 
-	CheckJumpError(e);
+	CheckError(e);
 
 	return result;
 }
@@ -486,7 +534,7 @@ plrb_protect0(plrb_func_t func)
 	VALUE result;
 
 	result = rb_protect(func, Qnil, &e);
-	CheckJumpError(e);
+	CheckError(e);
 	return result;
 }
 VALUE
@@ -496,7 +544,7 @@ plrb_protect1(plrb_func_t func, VALUE arg1)
 	VALUE result;
 
 	result = rb_protect(func, arg1, &e);
-	CheckJumpError(e);
+	CheckError(e);
 	return result;
 }
 
@@ -510,7 +558,7 @@ typedef struct {
 static VALUE
 plrb_funcaller(funcall_arg* arg)
 {
-	return rb_funcall2(arg->recv, arg->method, arg->argc, arg->argv); /* XXX: SEGV as of 0.02 */
+	return rb_funcall2(arg->recv, arg->method, arg->argc, arg->argv);
 }
 
 static VALUE
@@ -535,7 +583,7 @@ do_funcall_protect(pTHX_ VALUE recv, ID method, int argc, VALUE* argv, int has_p
 
 	result = rb_protect((plrb_func_t)(has_proc ? plrb_iterate : plrb_funcaller), (VALUE)&arg, &e);
 
-	CheckJumpError(e);
+	CheckError(e);
 
 	return result;
 }
@@ -552,8 +600,8 @@ plrb_funcall_protect(pTHX_ VALUE recv, ID method, int argc, SV** argv)
 	if( ((size_t)argc) > (sizeof(smallbuf) / sizeof(VALUE))){
 		argbuf = rb_ary_new2(argc);
 
-		RARRAY(argbuf)->len = argc;
-		args = RARRAY(argbuf)->ptr;
+		RARRAY_LEN(argbuf)= argc;
+		args = RARRAY_PTR(argbuf);
 	}
 	else{
 		args = smallbuf;
@@ -596,7 +644,7 @@ plrb_install_class(pTHX_ const char* pkg, VALUE klass)
 
 		sv_setpvf(sv, "%s::ISA", pkg);
 		isa = get_av(SvPVX(sv), TRUE);
-		sv_setpvn(sv, "Ruby::Object", sizeof("Ruby::Object")-1);
+		sv_setpvs(sv, "Ruby::Object");
 		av_push(isa, sv);
 	}
 }
@@ -646,12 +694,12 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 
 		/* export classes */
 		constants = rb_mod_constants(CLASS_OF(self));
-		if(RARRAY(constants)->len > 0){
+		if(RARRAY_LEN(constants) > 0){
 			volatile VALUE vpkg = rb_str_new2(pkgname);
 			int pkglen = RSTRLEN(vpkg);
 			int i;
-			for(i = 0; i < RARRAY(constants)->len; i++){
-				VALUE name = RARRAY(constants)->ptr[i];
+			for(i = 0; i < RARRAY_LEN(constants); i++){
+				VALUE name = RARRAY_PTR(constants)[i];
 				VALUE klass = rb_const_get_at(CLASS_OF(self), rb_intern(RSTRING_PTR(name)));
 
 				if(TYPE(klass) == T_CLASS || TYPE(klass) == T_MODULE){

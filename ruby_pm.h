@@ -110,8 +110,8 @@ bool plrb_is_value(pTHX_ SV*);
 
 SV*   plrb_value2sv(pTHX_ VALUE);
 
-SV*   plrb_sv_set_value2sv(pTHX_ SV* sv, VALUE value);
-SV*   plrb_sv_set_value(pTHX_ SV* sv, VALUE value, const char* pkg);
+SV*   plrb_sv_set_value(pTHX_ SV* sv, VALUE value);
+SV*   plrb_sv_set_value_direct(pTHX_ SV* sv, VALUE value, const char* pkg);
 
 SV*   plrb_new_sv_value(pTHX_ VALUE, const char* pkg);
 
@@ -158,13 +158,13 @@ extern ID plrb_id_call_from_perl;
 
 /* macros for VALUE */
 
-#define new_sv_value(value, pkg) plrb_sv_set_value(aTHX_ newSV(0),  value, pkg)
+#define new_sv_value(value, pkg) sv_set_value_direct(newSV(0),  value, pkg)
 
 #define newSVvalue(value) plrb_newSVvalue(aTHX_ value)
 #define delSVvalue(value) plrb_delSVvalue(aTHX_ value)
 
-#define sv_set_value(sv, value, pkg)  plrb_sv_set_value(aTHX_ sv, value, pkg)
-#define sv_set_value2sv(sv, value)    plrb_sv_set_value2sv(aTHX_ sv, value)
+#define sv_set_value_direct(sv, value, pkg)  plrb_sv_set_value_direct(aTHX_ sv, value, pkg)
+#define sv_set_value(sv, value)              plrb_sv_set_value(aTHX_ sv, value)
 
 #define isSV(value) (TYPE(value) == T_DATA && rb_obj_is_kind_of(value, plrb_cAny))
 #define valueSV(value) ((SV*)DATA_PTR(value))

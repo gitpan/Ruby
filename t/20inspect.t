@@ -40,12 +40,12 @@ like rb_inspect($s), qr/\Q(...)/, "inspect recursive scalar";
 }
 {
 	package Inspectable;
-	use Ruby qw(rb_inspect);
+	use Ruby qw(rb_basic_inspect);
 	
 	sub new{ bless {} }
 
 	sub inspect{
-		'##'. rb_inspect(@_);
+		'##'. rb_basic_inspect(@_);
 	}
 
 }

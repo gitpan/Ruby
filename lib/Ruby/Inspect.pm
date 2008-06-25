@@ -1,48 +1,26 @@
 package Ruby::Inspect;
 
 use strict;
-use warnings;
-
-our $VERSION = '0.01';
+use warnings FATAL => 'all';
 
 use Scalar::Util qw(blessed reftype refaddr looks_like_number);
 
-our $in_inspect = 0;
-
-sub inspect
-{
+sub rb_inspect{
 	return 'undef' unless defined $_[0];
-
-	local $in_inspect = $in_inspect + 1;
 
 	my $obj = $_[0];
 
 	unless($_[1]){
-		push @_, { };
+		push @_, { }; # seen hash
 	}
 
-	my $seen = $_[1];
-	
-	if(ref $obj and $seen->{ refaddr $obj }++){
-		my $reftype = reftype($obj);
-		if($reftype eq 'HASH'){
-			return '{...}';
-		}
-		elsif($reftype eq 'ARRAY'){
-			return '[...]';
-		}
-		else{
-			return '(...)';
-		}
-	}
-
-	if($in_inspect <= 1 and blessed($obj)){
+	if( blessed $obj ){
 		if(my $inspect = $obj->can('inspect')){
 			return scalar( $obj->$inspect() );
 		}
 	}
 
-	return &basic_inspect;
+	return &rb_basic_inspect;
 }
 
 my %esc = (
@@ -58,9 +36,27 @@ my %esc = (
 	"\"" => '\"',
 );
 my $esc = join('', values %esc);
-sub basic_inspect
-{
+sub rb_basic_inspect{
 	my $obj = $_[0];
+
+	unless($_[1]){
+		push @_, { }; # seen hash
+	}
+
+	my $seen = $_[1];
+
+	if(ref $obj and $seen->{ refaddr $obj }++){
+		my $reftype = reftype($obj);
+		if($reftype eq 'HASH'){
+			return '{...}';
+		}
+		elsif($reftype eq 'ARRAY'){
+			return '[...]';
+		}
+		else{
+			return '(...)';
+		}
+	}
 
 	# reference
 	if(ref $obj){
@@ -68,7 +64,7 @@ sub basic_inspect
 
 		my $result = '';
 
-		if(my $class = blessed($obj)){
+		if(my $class = blessed $obj){
 			$result .= "${class}=";
 
 			if($class eq 'Regexp'){
@@ -112,9 +108,9 @@ sub HASH{
 
 	while(my($key, $val) = each %$hr){
 
-		$result .= inspect($key, $_[1]);
+		$result .= rb_inspect($key, $_[1]);
 		$result .= ' => ';
-		$result .= inspect($val, $_[1]);
+		$result .= rb_inspect($val, $_[1]);
 		$result .= ",";
 	}
 
@@ -129,7 +125,7 @@ sub ARRAY{
 	my $result = '';
 
 	foreach (@$ar){
-		$result .= inspect($_, $_[1]);
+		$result .= rb_inspect($_, $_[1]);
 		$result .= ",";
 	}
 	chop $result;
@@ -139,18 +135,18 @@ sub ARRAY{
 sub SCALAR{
 	my $sr = $_[0];
 
-	return '\\' . inspect($$sr, $_[1]);
+	return '\\' . rb_inspect($$sr, $_[1]);
 
 }
 sub REF{
 	my $rr = $_[0];
 
-	return '\\' . inspect($$rr, $_[1]);
+	return '\\' . rb_inspect($$rr, $_[1]);
 }
 sub GLOB{
 	my $gr = $_[0];
 
-	return '\\' . inspect(*$gr, $_[1]);
+	return '\\' . rb_inspect(*$gr, $_[1]);
 }
 
 sub CODE{

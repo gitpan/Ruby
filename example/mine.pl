@@ -82,8 +82,8 @@ BEGIN{
 	sub info{
 		my($self) = @_;
 
-		$self->pos(0, $self->{'@_hi'});
-		print "the rest: ", $self->{'@_mc'}, "/", $self->{'@_total'}, "    ";
+		$self->pos(0, $self->{'_hi'});
+		print "the rest: ", $self->{'_mc'}, "/", $self->{'_total'}, "    ";
 		$self->pos();
 	}
 
@@ -94,8 +94,8 @@ BEGIN{
 
 	sub pos{
 		my($self, $x, $y) = @_;
-		$x ||= $self->{'@_cx'};
-		$y ||= $self->{'@_cy'};
+		$x ||= $self->{'_cx'};
+		$y ||= $self->{'_cy'};
 		printf "\e[%d;%dH", $y+1, $x*2+1;
 	}
 	sub colorstr{
@@ -116,9 +116,9 @@ BEGIN{
 
 		my $self = $class->SUPER::new();
 
-		$self->{'@_hi'} = $h;
-		$self->{'@_wi'} = $w;
-		$self->{'@_m'}  = $m;
+		$self->{'_hi'} = $h;
+		$self->{'_wi'} = $w;
+		$self->{'_m'}  = $m;
 
 		$self->reset;
 
@@ -130,23 +130,23 @@ BEGIN{
 
 		Kernel->srand();
 
-		$self->{'@_cx'} = 0;
-		$self->{'@_cy'} = 0;
-		$self->{'@_mc'} = $self->{'@_m'};
-		$self->{'@_over'} = false;
-		$self->{'@_data'}  = Array->new($self->{'@_hi'} * $self->{'@_wi'});
-		$self->{'@_state'} = Array->new($self->{'@_hi'} * $self->{'@_wi'});
-		$self->{'@_total'} = $self->{'@_hi'} * $self->{'@_wi'};
-		$self->{'@_total'}->times(sub{
+		$self->{'_cx'} = 0;
+		$self->{'_cy'} = 0;
+		$self->{'_mc'} = $self->{'_m'};
+		$self->{'_over'} = false;
+		$self->{'_data'}  = Array->new($self->{'_hi'} * $self->{'_wi'});
+		$self->{'_state'} = Array->new($self->{'_hi'} * $self->{'_wi'});
+		$self->{'_total'} = $self->{'_hi'} * $self->{'_wi'};
+		$self->{'_total'}->times(sub{
 			my($i) = @_;
-			$self->{'@_data'}->aset($i, 0);
+			$self->{'_data'}->aset($i, 0);
 		});
 
-		$self->{'@_m'}->times(sub{
+		$self->{'_m'}->times(sub{
 			while(true){
-				my $j = Kernel->rand($self->{'@_total'} - 1);
-				if($self->{'@_data'}->aref($j) == 0){
-					$self->{'@_data'}->aset($j, 1);
+				my $j = Kernel->rand($self->{'_total'} - 1);
+				if($self->{'_data'}->aref($j) == 0){
+					$self->{'_data'}->aset($j, 1);
 					last;
 				}
 			}
@@ -154,10 +154,10 @@ BEGIN{
 
 		$self->clr;
 		$self->pos(0, 0);
-		$self->{'@_hi'}->times(sub{
+		$self->{'_hi'}->times(sub{
 			my($y) = @_;
 			$self->pos(0, $y);
-			$self->colorstr($Default, $CHR[0] * $self->{'@_wi'});
+			$self->colorstr($Default, $CHR[0] * $self->{'_wi'});
 		});
 
 		$self->info();
@@ -166,22 +166,22 @@ BEGIN{
 	sub mark{
 		my($self) = @_;
 
-		my $ix = $self->{'@_wi'} * $self->{'@_cy'} + $self->{'@_cx'};
-		my $s = $self->{'@_state'}->aref($ix);
+		my $ix = $self->{'_wi'} * $self->{'_cy'} + $self->{'_cx'};
+		my $s = $self->{'_state'}->aref($ix);
 		if($s == nil){
-			$self->{'@_state'}->aset($ix, "MARK");
+			$self->{'_state'}->aset($ix, "MARK");
 
-			$self->{'@_mc'}    -= 1;
-			$self->{'@_total'} -= 1;
-			$self->put($self->{'@_cx'}, $self->{'@_cy'}, $Opened, $CHR[9]);
+			$self->{'_mc'}    -= 1;
+			$self->{'_total'} -= 1;
+			$self->put($self->{'_cx'}, $self->{'_cy'}, $Opened, $CHR[9]);
 		}
 		elsif($s == "MARK"){
-			$self->{'@_state'}->aset($ix, nil);
+			$self->{'_state'}->aset($ix, nil);
 
-			$self->{'@_mc'}    += 1;
-			$self->{'@_total'} += 1;
+			$self->{'_mc'}    += 1;
+			$self->{'_total'} += 1;
 
-			$self->put($self->{'@_cx'}, $self->{'@_cy'}, $Default, $CHR[0]);
+			$self->put($self->{'_cx'}, $self->{'_cy'}, $Default, $CHR[0]);
 		}
 		elsif($s == "OPEN"){
 			return;
@@ -190,25 +190,25 @@ BEGIN{
 
 	sub open{
 		my($self, $x, $y) = @_;
-		$x ||= $self->{'@_cx'};
-		$y ||= $self->{'@_cy'};
+		$x ||= $self->{'_cx'};
+		$y ||= $self->{'_cy'};
 
-		my $wi = $self->{'@_wi'};
-		my $hi = $self->{'@_hi'};
-		my $state = $self->{'@_state'};
+		my $wi = $self->{'_wi'};
+		my $hi = $self->{'_hi'};
+		my $state = $self->{'_state'};
 
 		if($state->aref($wi * $y + $x) == "OPEN"){ return 0 }
 		if($state->aref($wi * $y + $x) == nil) {
-			$self->{'@_total'} -= 1;
+			$self->{'_total'} -= 1;
 		}
 		if($state->aref($wi * $y + $x) == "MARK"){
-			$self->{'@_mc'} += 1;
+			$self->{'_mc'} += 1;
 		}
 
-		$self->{'@_state'}->aset($wi * $y + $x, "OPEN");
+		$self->{'_state'}->aset($wi * $y + $x, "OPEN");
 
 		if($self->fetch($x, $y) == 1){
-			$self->{'@_over'} = 1;
+			$self->{'_over'} = 1;
 			return;
 		}
 
@@ -233,11 +233,11 @@ BEGIN{
 		my($self, $x, $y) = @_;
 
 		if($x < 0)             { return 0 }
-		elsif($x >= $self->{'@_wi'}){ return 0 }
+		elsif($x >= $self->{'_wi'}){ return 0 }
 		elsif($y < 0)          { return 0 }
-		elsif($y >= $self->{'@_hi'}){ return 0 }
+		elsif($y >= $self->{'_hi'}){ return 0 }
 		else{
-			$self->{'@_data'}->aref($y * $self->{'@_wi'} + $x);
+			$self->{'_data'}->aref($y * $self->{'_wi'} + $x);
 		}
 	}
 	sub count{
@@ -256,7 +256,7 @@ BEGIN{
 			$self->pos();
 			print $CHR[11];
 		}
-		$self->pos(0, $self->{'@_hi'});
+		$self->pos(0, $self->{'_hi'});
 
 		if($win){
 			print "*** YOU WIN ! ***";
@@ -268,9 +268,9 @@ BEGIN{
 
 	sub is_over{
 		my($self) = @_;
-		my $remain = ($self->{'@_mc'} + $self->{'@_total'} == 0);
+		my $remain = ($self->{'_mc'} + $self->{'_total'} == 0);
 
-		if($self->{'@_over'} || $remain){
+		if($self->{'_over'} || $remain){
 			$self->over($remain);
 			return true;
 		}
@@ -282,12 +282,12 @@ BEGIN{
 	sub quit{
 		my($self) = @_;
 
-		$self->{'@_hi'}->times(sub{ my($y) = @_;
+		$self->{'_hi'}->times(sub{ my($y) = @_;
 			$self->pos(0, $y);
-			$self->{'@_wi'}->times(sub{ my($x) = @_;
+			$self->{'_wi'}->times(sub{ my($x) = @_;
 			
 				$self->colorstr(
-					$self->{'@_state'}->aref($y*$self->{'@_wi'}+$x) == "MARK"
+					$self->{'_state'}->aref($y*$self->{'_wi'}+$x) == "MARK"
 						? $Default : $Over,
 					$self->fetch($x, $y) == 1
 						? $CHR[10] : $CHR[ $self->count($x, $y) ]);
@@ -298,8 +298,8 @@ BEGIN{
 	{
 		my($self) = @_;
 
-		if($self->{'@_cy'} < $self->{'@_hi'}-1){
-			$self->{'@_cy'} += 1;
+		if($self->{'_cy'} < $self->{'_hi'}-1){
+			$self->{'_cy'} += 1;
 			$self->pos();
 		}
 	}
@@ -307,8 +307,8 @@ BEGIN{
 	{
 		my($self) = @_;
 
-		if($self->{'@_cy'} > 0){
-			$self->{'@_cy'} -= 1;
+		if($self->{'_cy'} > 0){
+			$self->{'_cy'} -= 1;
 			$self->pos();
 		}
 	}
@@ -316,16 +316,16 @@ BEGIN{
 	{
 		my($self) = @_;
 
-		if($self->{'@_cx'} > 0){
-			$self->{'@_cx'} -= 1;
+		if($self->{'_cx'} > 0){
+			$self->{'_cx'} -= 1;
 			$self->pos();
 		}
 	}
 	sub right
 	{
 		my($self) = @_;
-		if($self->{'@_cx'} < $self->{'@_wi'}-1){
-			$self->{'@_cx'} += 1;
+		if($self->{'_cx'} < $self->{'_wi'}-1){
+			$self->{'_cx'} += 1;
 			$self->pos();
 		}
 	}

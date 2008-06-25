@@ -275,13 +275,14 @@ plrb_perl_eval(int argc, VALUE* argv, VALUE self)
 	}
 	return ret;
 }
-/*
+
 static VALUE
 plrb_perl_require(int argc, VALUE* argv, VALUE self)
 {
 	dTHX;
 	VALUE modname;
 	SV* sv;
+	PERL_UNUSED_ARG(self);
 
 	rb_scan_args(argc, argv, "1", &modname);
 
@@ -292,7 +293,7 @@ plrb_perl_require(int argc, VALUE* argv, VALUE self)
 
 	return Qtrue;
 }
-*/
+
 
 static VALUE
 plrb_perl_string(VALUE self, VALUE str)
@@ -997,7 +998,7 @@ plrb_scalar_set(VALUE self, VALUE other)
 
 	Modify(self);
 
-	sv_set_value2sv(valueSV(self), other);
+	sv_set_value(valueSV(self), other);
 
 	return self;
 }
@@ -1480,8 +1481,8 @@ plrb_call_sv(VALUE self, SV* sv, int flags, int argc, VALUE* argv)
 	PUSHMARK(SP);
 
 	if(argc == 1 && TYPE(argv[0]) == T_ARRAY){
-		argc = RARRAY(argv[0])->len;
-		argv = RARRAY(argv[0])->ptr;
+		argc = RARRAY_LEN(argv[0]);
+		argv = RARRAY_PTR(argv[0]);
 	}
 
 	if(argc != 0){
@@ -1533,9 +1534,9 @@ plrb_call_sv(VALUE self, SV* sv, int flags, int argc, VALUE* argv)
 	}
 	else{
 		result = rb_ary_new2(i);
-		RARRAY(result)->len = i;
+		RARRAY_LEN(result) = i;
 		while(i--){
-			RARRAY(result)->ptr[i] = SV2VALUE(POPs);
+			RARRAY_PTR(result)[i] = SV2VALUE(POPs);
 		}
 	}
 
@@ -1643,7 +1644,7 @@ plrb_package_singleton_method_added(VALUE self, VALUE method)
 
 
 	cv = newXS(RSTRING_PTR(name), XS_Ruby_function_dispatcher, __FILE__);
-	CvXSUBANY(cv).any_iv = (IV)id_m;
+	CvXSUBANY(cv).any_ptr = (void*)id_m;
 
 	return Qnil;
 }
@@ -1769,7 +1770,7 @@ ary_to_perl(VALUE ary)
 {
 	VALUE perlarray = rb_obj_alloc(plrb_cArray);
 
-	plrb_array_push(RARRAY(ary)->len, RARRAY(ary)->ptr, perlarray);
+	plrb_array_push(RARRAY_LEN(ary), RARRAY_PTR(ary), perlarray);
 
 	V2V_INFECT(ary, perlarray);
 
@@ -1845,9 +1846,9 @@ Init_perl(pTHX)
 
 	rb_define_singleton_method(plrb_mPerl, "eval",         RUBY_METHOD_FUNC(plrb_perl_eval),    -1);
 
-	/*
+	
 	rb_define_singleton_method(plrb_mPerl, "require",      RUBY_METHOD_FUNC(plrb_perl_require), -1);
-	*/
+	
 
 	/* class Perl::Exception */
 

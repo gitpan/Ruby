@@ -1,6 +1,9 @@
 Changes
 example/all_symbols.pl
+example/attr.pl
+example/attr_bench.pl
 example/bigint.pl
+example/class.pl
 example/dbi.rb
 example/encode.rb
 example/filespec.rb
@@ -15,6 +18,7 @@ example/quine.pl
 example/regexp.pl
 example/rubyish.pl
 example/segv.pl
+example/stackerror.pl
 example/thread.pl
 example/version.pl
 exp/10attr.t
@@ -58,7 +62,9 @@ t/10attr.t
 t/11autobox.t
 t/12inherit.t
 t/13taint.t
+t/14rubyrun.t
 t/20inspect.t
+t/50stackerror.t
 t/99pod.t
 typemap
 META.yml                                 Module meta-data (added by MakeMaker)
