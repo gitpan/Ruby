@@ -11,6 +11,8 @@ static ID id_to_i;
 static ID id_new;
 static ID id_equals;
 
+
+
 #define XSANY_method ((ID)XSANY.any_ptr)
 
 ID plrb_id_call_from_perl;
@@ -43,10 +45,14 @@ XS(XS_Ruby_function_dispatcher)
 {
 	dXSARGS;
 	VALUE result;
-	HV* stash = GvSTASH(CvGV(cv));
-	VALUE pkgobj = plrb_get_package(HvNAME(stash));
+	HV* stash;
+	VALUE pkgobj;
 
+	stash = GvSTASH(CvGV(cv));
+	pkgobj = plrb_get_package(HvNAME(stash));
 	rb_ivar_set(pkgobj, plrb_id_call_from_perl, ID2SYM(XSANY_method));
+
+
 
 	result = Funcall(pkgobj, XSANY_method, items, &ST(0));
 
@@ -335,7 +341,7 @@ MGVTBL gvar_vtbl = {
 	NULL, /* mg_free */
 	NULL, /* mg_copy */
 	NULL, /* mg_dup */
-	NULL, /* mg_local */
+//	NULL, /* mg_local */
 };
 
 MODULE = Ruby	PACKAGE = Ruby

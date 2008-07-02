@@ -755,11 +755,11 @@ plrb_scalar_coerce(VALUE self, VALUE other)
 {
 	dTHX;
 	SV* sv = valueSV(self);
-	if(SvIOK(sv)){
-		return rb_assoc_new(other, rb_int_new((long)SvIV(sv)));
+	if(SvIOK(sv) || (SvNOK(sv) && (((NV)SvIV(sv)) == SvNV(sv)))){
+		return rb_assoc_new(other, rb_int_new((long)SvIVX(sv)));
 	}
 	else if(looks_like_number(sv)){
-		return rb_assoc_new(other, rb_float_new(SvNV(sv)));
+		return rb_assoc_new(other, rb_float_new(SvNVX(sv)));
 	}
 
 	return Qnil;

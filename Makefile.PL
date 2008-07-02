@@ -35,13 +35,15 @@ unless(-x $ruby){
 }
 
 unless(-x $ruby){
-	die "Executable ruby command is not found, stopped";
+	warn "Executable ruby command is not found, stopped";
+	exit;
 }
 
 my $rubysign = `$ruby -v`;
 
 if(!$rubysign or $rubysign !~ /^ruby /){
-	die "The command '$ruby' doesn't seem to be ruby, stopped";
+	warn "The command '$ruby' doesn't seem to be ruby, stopped";
+	exit;
 }
 
 print "Using $ruby\n";
@@ -50,12 +52,14 @@ print $rubysign;
 my $rbver = `$ruby -e "print RUBY_VERSION"`;
 
 if($rbver lt RUBY_REQUIRE_VERSION_LT){
-	die "Ruby version ",
+	warn "Ruby version ",
 		RUBY_REQUIRE_VERSION_LT,
 		" required--this is only version $rbver, stopped";
+	exit;
 }
 if($rbver gt RUBY_REQUIRE_VERSION_GT){
-	die "Ruby version $rbver is not supported, stopped";
+	warn "Ruby version $rbver is not supported, stopped";
+	exit;
 }
 
 my $archdir    = ruby_config($ruby, "archdir");

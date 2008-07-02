@@ -1,6 +1,7 @@
 ^blib
 \bCVS\b
 \.(?:o|obj|old|bak|def|bs|tar\.gz|out)$
+\.(?:BAK)$
 ~$
 ^Ruby\.c$
 ^pm_to_blib$

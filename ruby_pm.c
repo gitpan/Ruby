@@ -222,6 +222,8 @@ plrb_sv_set_value_direct(pTHX_ SV* sv, VALUE value, const char* pkg)
 	SvREADONLY_on(SvRV(sv));
 
 	if(!SPECIAL_CONST_P(value)){ /* value is pointer */
+		const char st_extender[1024*2];PERL_UNUSED_ARG(st_extender);
+
 		obj_id = rb_obj_id(value);
 
 		reg = GetRegister(obj_id);
@@ -580,7 +582,7 @@ do_funcall_protect(pTHX_ VALUE recv, ID method, int argc, VALUE* argv, int has_p
 	volatile funcall_arg arg = { recv, method, argc, argv };
 	VALUE result;
 	int e = 0;
-
+	
 	result = rb_protect((plrb_func_t)(has_proc ? plrb_iterate : plrb_funcaller), (VALUE)&arg, &e);
 
 	CheckError(e);
@@ -592,7 +594,7 @@ VALUE
 plrb_funcall_protect(pTHX_ VALUE recv, ID method, int argc, SV** argv)
 {
 	volatile VALUE argbuf;
-	VALUE smallbuf[4];
+	VALUE smallbuf[1024];
 	VALUE* args;
 	int idx;
 	int has_proc;
@@ -662,6 +664,8 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 	VALUE argv[4];
 	VALUE result;
 
+	const char stack_extender[1024*2]; PERL_UNUSED_ARG(stack_extender);
+
 	S2V_INFECT(source, src);
 
 	if(SvOK(pkg)){
@@ -670,16 +674,19 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 		}
 	}
 
-	if(!pkgname){
+	if(!pkgname){ /* eval() without package */
+
+
 		/* eval(source, binding, file, line) */
 		argv[0] = src; 
 		argv[1] = Qnil;
 		argv[2] = file;
 		argv[3] = INT2NUM(line);
-
-		result = do_funcall_protect(aTHX_ plrb_top_self, rb_intern("eval"), 3, argv, FALSE);
+		result = do_funcall_protect(aTHX_ plrb_top_self, rb_intern("eval"), 4, argv, FALSE);
 	}
-	else{
+
+	else{ /* eval() with package */
+
 		volatile VALUE self = plrb_get_package(pkgname);
 		volatile VALUE constants;
 
