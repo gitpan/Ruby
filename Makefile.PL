@@ -100,7 +100,7 @@ WriteMakefile(
 	NAME         => 'Ruby',
 	VERSION_FROM => 'Ruby.pm',
 
-	ABSTRACT_FROM => 'lib/Ruby.pod',
+	ABSTRACT_FROM=> 'lib/Ruby.pod',
 
 	OBJECT       => '$(O_FILES)',
 
@@ -112,8 +112,7 @@ WriteMakefile(
 	AUTHOR       => 'Goro Fuji',
 	LICENSE      => 'perl',
 
-
-    clean               => { FILES => 'Ruby-* *.gcov *.gcda *.gcno' },
+	clean        => { FILES => 'Ruby-* *.gcov *.gcda *.gcno' },
 );
 
 

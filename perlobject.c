@@ -68,9 +68,6 @@ static void
 plrb_any_free(SV* sv)
 {
 	dTHX;
-	D(DB_SV2VALUE, ("Ruby.pm: any_free(0x%" UVxf ":%lu %s)",
-		PTR2UV(sv), SvREFCNT(sv)-1, sv_inspect_cstr(sv)));
-
 	SvREFCNT_dec(sv);
 }
 
@@ -81,10 +78,6 @@ plrb_any_new_noinc(pTHX_ SV* sv)
 	VALUE obj;
 
 	if(!sv) return Qnil;
-
-	D(DB_SV2VALUE, ("Ruby.pm: any_new(0x%" UVxf ":%" UVuf " %s)",
-		PTR2UV(sv), SvREFCNT(sv)+1, sv_inspect_cstr(sv)));
-
 
 	switch(SvTYPE(sv)){
 	case SVt_PVGV:
@@ -137,8 +130,6 @@ plrb_any_new_noinc(pTHX_ SV* sv)
 	setup:
 
 	SvSetup(obj, klass, sv);
-
-	/* D(DB_SV2VALUE, ("Ruby.pm:  ->(0x%lx)", obj)); */
 
 	return obj;
 }
@@ -270,7 +261,7 @@ plrb_perl_eval(int argc, VALUE* argv, VALUE self)
 			rb_exc_raise(rb_errinfo());
 		}
 		else{
-			rb_raise(plrb_eExc, "%s", SvPV_nolen(ERRSV));
+			rb_raise(plrb_eExc, "%" SVf, ERRSV);
 		}
 	}
 	return ret;
@@ -578,7 +569,7 @@ plrb_eq(VALUE self, VALUE other)
 			return (tmpsv && SvOK(tmpsv)) ? Qtrue : Qfalse;
 		}
 
-		return strEQ(SvPV_nolen(lhs), SvPV_nolen(rhs)) ? Qtrue : Qfalse;
+		return strEQ(SvPV_nolen_const(lhs), SvPV_nolen_const(rhs)) ? Qtrue : Qfalse;
 	}
 	else {
 		if(rb_obj_is_kind_of(other, rb_cNumeric)){
@@ -756,10 +747,10 @@ plrb_scalar_coerce(VALUE self, VALUE other)
 	dTHX;
 	SV* sv = valueSV(self);
 	if(SvIOK(sv) || (SvNOK(sv) && (((NV)SvIV(sv)) == SvNV(sv)))){
-		return rb_assoc_new(other, rb_int_new((long)SvIVX(sv)));
+		return rb_assoc_new(other, rb_int_new((long)SvIV(sv)));
 	}
 	else if(looks_like_number(sv)){
-		return rb_assoc_new(other, rb_float_new(SvNVX(sv)));
+		return rb_assoc_new(other, rb_float_new(SvNV(sv)));
 	}
 
 	return Qnil;
@@ -831,7 +822,7 @@ plrb_scalar_to_int(VALUE self)
 		value = rb_dbl2big(SvNV(sv));
 	}
 	else{
-		value = rb_cstr_to_inum(SvPV_nolen(sv), 10, Qtrue);
+		value = rb_cstr_to_inum(SvPV_nolen_const(sv), 10, Qtrue);
 	}
 
 	S2V_INFECT(sv, value);
@@ -1051,11 +1042,9 @@ plrb_any_method_invoke(int argc, VALUE* argv, VALUE self)
 	if(gv){
 		argv[0] = self;
 
-		D(DB_METHOD, ("Ruby.pm: automethod(%s): call_sv", meth_s));
 		return plrb_call_sv(self, (SV*)(gv), G_METHOD, argc, argv);
 	}
 	else{
-		D(DB_METHOD, ("Ruby.pm: automethod(%s): super", meth_s));
 		return rb_call_super(argc, argv);
 	}
 }
@@ -1522,7 +1511,7 @@ plrb_call_sv(VALUE self, SV* sv, int flags, int argc, VALUE* argv)
 			rb_exc_raise(rb_errinfo());
 		}
 		else{
-			rb_raise(plrb_eExc, "%s", SvPV_nolen(ERRSV));
+			rb_raise(plrb_eExc, "%" SVf, ERRSV);
 		}
 	}
 
@@ -1693,11 +1682,9 @@ plrb_package_function_invoke(int argc, VALUE* argv, VALUE self)
 		argc--;
 		argv++;
 
-		D(DB_METHOD, ("Ruby.pm: autofunc(%s): call_sv", meth_s));
 		return plrb_call_sv(self, (SV*)GvCV(gv), 0, argc, argv);
 	}
 	else{
-		D(DB_METHOD, ("Ruby.pm: autofunc(%s): super", meth_s));
 		return rb_call_super(argc, argv);
 	}
 }

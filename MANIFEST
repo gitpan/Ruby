@@ -47,7 +47,6 @@ Ruby.pm
 Ruby.xs
 ruby_pm.c
 ruby_pm.h
-ruby_pm_debug.h
 t/00use.t
 t/01basic.t
 t/02require_rb.t

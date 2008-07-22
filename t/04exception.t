@@ -3,7 +3,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 26;
+use Test::More tests => 25;
 
 BEGIN{ use_ok('Ruby'); }
 
@@ -83,11 +83,6 @@ eval{
 	$s->concat('bar');
 };
 ok($rb_errinfo->kind_of('TypeError'), "Modification of read-only value attempt");
-
-eval{
-	rb_eval('[1].each');
-};
-ok($rb_errinfo->kind_of('LocalJumpError'), "no method given");
 
 eval{
 	rb_eval('return');

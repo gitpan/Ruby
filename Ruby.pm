@@ -8,7 +8,7 @@ use warnings;
 use Carp ();
 use XSLoader ();
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 XSLoader::load(__PACKAGE__, $VERSION);
 
@@ -260,7 +260,16 @@ package Ruby::Object;
 use overload
 	fallback => 1,
 
-	# Operators are registered in bootstrap.
+	'='    => 'clone', # copy constructor
+
+	'""'   => 'stringify',
+	'0+'   => 'numify',
+	'bool' => 'boolify',
+
+	'%{}'  => 'hashify',
+	'&{}'  => 'codify',
+
+	# The rest of operators are registered in bootstrap.
 ;
 
 sub codify{

@@ -4,14 +4,14 @@
 
 #include "ruby_pm.h"
 
+#define STACK_EXTEND { const char stack_extend[ 1024*2 ]; (void)stack_extend; }
+
 #define INSTALL_GVAR(sv, name) sv_magicext(sv, NULL, PERL_MAGIC_ext, &gvar_vtbl, (char*)name, (I32)strlen(name))
 
 static ID id_to_f;
 static ID id_to_i;
 static ID id_new;
 static ID id_equals;
-
-
 
 #define XSANY_method ((ID)XSANY.any_ptr)
 
@@ -25,6 +25,8 @@ XS(XS_Ruby_VALUE_new)
 	PERL_UNUSED_VAR(cv);
 
 	if(items == 0) croak("Not enough arguments for new");
+
+	STACK_EXTEND;
 
 	/*
 	 * "ClassName" or RubyClass
@@ -45,14 +47,12 @@ XS(XS_Ruby_function_dispatcher)
 {
 	dXSARGS;
 	VALUE result;
-	HV* stash;
-	VALUE pkgobj;
+	HV* stash = GvSTASH(CvGV(cv));
+	VALUE pkgobj = plrb_get_package(HvNAME(stash));
 
-	stash = GvSTASH(CvGV(cv));
-	pkgobj = plrb_get_package(HvNAME(stash));
+	STACK_EXTEND;
+
 	rb_ivar_set(pkgobj, plrb_id_call_from_perl, ID2SYM(XSANY_method));
-
-
 
 	result = Funcall(pkgobj, XSANY_method, items, &ST(0));
 
@@ -72,6 +72,7 @@ XS(XS_Ruby_method_dispatcher)
 	VALUE result;
 
 	if(items == 0) croak("Not enough arguments for %s", GvNAME(CvGV(cv)));
+	STACK_EXTEND;
 
 	self   = ruby_self(ST(0));
 	result = Funcall(self, XSANY_method, (items - 1), &ST(1));
@@ -112,6 +113,7 @@ XS(XS_Ruby_op_eqne)
 	int result;
 
 	if(items != 3) croak("Wrong number of arguments");
+	STACK_EXTEND;
 
 	if(!SvTRUE(ST(2))){
 		lhs = ST(0);
@@ -136,6 +138,7 @@ XS(XS_Ruby_op_unary)
 	VALUE RETVAL;
 
 	if(items != 3) croak("Wrong number of arguments");
+	STACK_EXTEND;
 
 	RETVAL = Funcall(SV2VALUE(ST(0)), XSANY_method, 0, NULL);
 
@@ -150,6 +153,7 @@ XS(XS_Ruby_op_transfunc_unary)
 	VALUE RETVAL;
 
 	if(items != 3) croak("Wrong number of arguments");
+	STACK_EXTEND;
 
 	RETVAL = Funcall(rb_mMath, XSANY_method, 1, &ST(0));
 
@@ -167,6 +171,7 @@ XS(XS_Ruby_op_binary)
 	VALUE RETVAL;
 
 	if(items != 3) croak("Wrong number of arguments");
+	STACK_EXTEND;
 
 	if(!SvTRUE(ST(2))){
 		lhs = ST(0);
@@ -189,6 +194,7 @@ XS(XS_Ruby_op_transfunc_binary)
 	dXSARGS;
 	SV* args[2];
 	VALUE RETVAL;
+	STACK_EXTEND;
 
 	if(items != 3) croak("Wrong number of arguments");
 
@@ -217,37 +223,12 @@ XS(XS_Ruby_op_transfunc_binary)
 inline static void
 register_overload(pTHX)
 {
-	register char* file = __FILE__;
-	register CV* cv;
-	GV* gv;
+	char* file = __FILE__;
+	CV* cv;
 
 	id_equals  = rb_intern("==");
 
 	plrb_id_call_from_perl = rb_intern("call_from_perl");
-
-	/* copy constructor */
-	gv = gv_fetchpv("Ruby::Object::(=", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv, sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::clone", TRUE))));
-
-	/* stringify */
-	gv = gv_fetchpv("Ruby::Object::(\"\"", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::stringify", TRUE))));
-
-	/* numify */
-	gv = gv_fetchpv("Ruby::Object::(0+", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::numify", TRUE))));
-
-	/* boolify */
-	gv = gv_fetchpv("Ruby::Object::(bool", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::boolify", TRUE))));
-
-	/* codify */
-	gv = gv_fetchpv("Ruby::Object::(&{}", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::codify", TRUE))));
-
-	/* ivar table */
-	gv = gv_fetchpv("Ruby::Object::(%{}", TRUE, SVt_PVGV);
-	sv_setsv((SV*)gv,  sv_2mortal(newRV_inc((SV*)get_cv("Ruby::Object::hashify", TRUE))));
 
 	/* equals */
 	cv = newXS("Ruby::Object::(==", XS_Ruby_op_eqne, file);
@@ -341,7 +322,7 @@ MGVTBL gvar_vtbl = {
 	NULL, /* mg_free */
 	NULL, /* mg_copy */
 	NULL, /* mg_dup */
-//	NULL, /* mg_local */
+	NULL, /* mg_local */
 };
 
 MODULE = Ruby	PACKAGE = Ruby
@@ -349,6 +330,8 @@ MODULE = Ruby	PACKAGE = Ruby
 PROTOTYPES: DISABLE
 
 BOOT:
+{
+	RUBY_INIT_STACK;
 	plrb_initialize(aTHX);
 	register_overload(aTHX);
 	id_to_f    = rb_intern("to_f");
@@ -358,10 +341,12 @@ BOOT:
 	newCONSTSUB(NULL, "Ruby::nil",   newSVvalue(Qnil));
 	newCONSTSUB(NULL, "Ruby::true",  newSVvalue(Qtrue));
 	newCONSTSUB(NULL, "Ruby::false", newSVvalue(Qfalse));
-
+}
 
 void
 END(...)
+INIT:
+	STACK_EXTEND;
 CODE:
 	PERL_UNUSED_ARG(items);
 	plrb_finalize(aTHX);
@@ -380,6 +365,8 @@ PREINIT:
 	bool all_digit;
 	STRLEN len;
 	const char* str;
+INIT:
+	STACK_EXTEND;
 CODE:
 	switch(ix){
 	case 0: /* string */
@@ -453,6 +440,8 @@ PREINIT:
 	VALUE methods;
 	VALUE arg = Qtrue;
 	long i1, i2;
+INIT:
+	STACK_EXTEND;
 CODE:
 	methods = rb_class_instance_methods(1, &arg, CLASS_OF(obj));
 
@@ -494,6 +483,8 @@ NEXTKEY(obj, last_key)
 PREINIT:
 	VALUE methods;
 	VALUE v;
+INIT:
+	STACK_EXTEND;
 CODE:
 	methods = rb_ivar_get(obj, rb_intern("__perl_each__"));
 	if(NIL_P(methods)){
@@ -512,6 +503,8 @@ VALUE
 FETCH(obj, attr)
 	VALUE obj
 	SV*   attr
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = Funcall(obj, sv2id(aTHX_ attr), 0, NULL);
 OUTPUT:
@@ -524,6 +517,8 @@ STORE(obj, attr, val)
 	SV*   val
 PREINIT:
 	SV* attr_assign;
+INIT:
+	STACK_EXTEND;
 CODE:
 	attr_assign = newSVpvf("%" SVf "=", attr);
 	sv_2mortal(attr_assign);
@@ -533,6 +528,8 @@ CODE:
 VALUE
 clone(obj, ...)
 	VALUE obj
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = plrb_protect1((plrb_func_t)rb_obj_clone, obj);
 OUTPUT:
@@ -544,6 +541,8 @@ stringify(obj, ...)
 PREINIT:
 	STRLEN len;
 	const char* str;
+INIT:
+	STACK_EXTEND;
 CODE:
 	str = ValuePV(obj, len);
 	RETVAL = newSVpvn(str, len);
@@ -557,6 +556,8 @@ numify(obj, ...)
 PREINIT:
 	int depth = 0;
 	VALUE v;
+INIT:
+	STACK_EXTEND;
 CODE:
 	v = obj;
 	numsv: switch(TYPE(v)){
@@ -606,6 +607,8 @@ CODE:
 void
 DESTROY(obj)
 	SV* obj
+INIT:
+	STACK_EXTEND;
 CODE:
 	delSVvalue(obj);
 
@@ -613,6 +616,8 @@ VALUE
 send(obj, method, ...)
 	VALUE obj
 	ID    method
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = Funcall(obj, method, items - 2, &ST(2));
 OUTPUT:
@@ -622,6 +627,8 @@ bool
 kind_of(obj, super)
 	SV* obj
 	const char* super
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = (bool)rb_obj_is_kind_of( ruby_self(obj), plrb_name2class(aTHX_ super));
 OUTPUT:
@@ -631,6 +638,8 @@ bool
 respond_to(obj, method)
 	SV* obj
 	ID  method
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = (bool)plrb_protect((plrb_func_t)rb_respond_to, 2, ruby_self(obj), (VALUE)method);
 OUTPUT:
@@ -641,6 +650,8 @@ alias(klass, new_name, orig_name)
 	SV* klass
 	ID new_name
 	ID orig_name
+INIT:
+	STACK_EXTEND;
 CODE:
 	plrb_protect((plrb_func_t)rb_alias, 3, ruby_self(klass), (VALUE)new_name, (VALUE)orig_name);
 
@@ -662,6 +673,8 @@ MODULE = Ruby	PACKAGE = Ruby
 void
 rubyify(sv)
 	VALUE sv
+INIT:
+	STACK_EXTEND;
 CODE:
 	ST(0) = sv_newmortal();
 	sv_set_value_direct(ST(0), sv, NULL);
@@ -671,6 +684,8 @@ VALUE
 rb_define_class(name, base)
 	const char* name
 	const char* base
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = plrb_protect((plrb_func_t)rb_define_class, 2, name, name2class(base));
 OUTPUT:
@@ -683,6 +698,8 @@ PREINIT:
 	SV* pkg;
 	const char* file;
 	int   line;
+INIT:
+	STACK_EXTEND;
 CODE:
 	/* package */
 	pkg  = (items >= 2 && SvOK(ST(1))) ? ST(1)             : &PL_sv_undef;
@@ -699,6 +716,8 @@ OUTPUT:
 bool
 rb_require(library)
 	const char* library
+INIT:
+	STACK_EXTEND;
 CODE:
 	RETVAL = (bool)plrb_protect1((plrb_func_t)rb_require, (VALUE)library);
 OUTPUT:
@@ -714,6 +733,8 @@ PREINIT:
 	PerlIO* out;
 	STRLEN rslen;
 	const char* rspv = ValuePV(rb_default_rs, rslen);
+INIT:
+	STACK_EXTEND;
 CODE:
 	out = IoOFP(GvIO(PL_defoutgv));
 
@@ -756,9 +777,9 @@ rb_install_method(perl_name, ruby_name, prototype = &PL_sv_undef)
 ALIAS:
 	rb_install_method   = METHOD_DISPATCHER
 	rb_install_function = FUNCTION_DISPATCHER
+INIT:
+	STACK_EXTEND;
 CODE:
-	D(DB_INSTALL, ("Ruby.pm: %s(%s, %s)", GvNAME(CvGV(cv)), perl_name, rb_id2name(ruby_name)));
-
 	RETVAL = newXS(perl_name, (XSUBADDR_t)ix, __FILE__);
 
 	CvXSUBANY(RETVAL).any_ptr = (void*)ruby_name;
@@ -777,6 +798,8 @@ void
 rb_install_class(perl_class, ruby_class)
 	const char* perl_class
 	const char* ruby_class
+INIT:
+	STACK_EXTEND;
 CODE:
 	plrb_install_class(aTHX_ perl_class, name2class(ruby_class));
 
@@ -799,6 +822,8 @@ ALIAS:
 	rb_c = T_CLASS
 	rb_e = T_EXCEPTION
 	rb_m = T_MODULE
+INIT:
+	STACK_EXTEND;
 CODE:
 	PERL_UNUSED_VAR(ix);
 	RETVAL = plrb_name2class(aTHX_ name);

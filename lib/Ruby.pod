@@ -54,7 +54,7 @@ Ruby - Perl interface to Ruby interpreter
 
 		# should be Perl's string
 		uri = Perl.String("http://www.ruby-lang.org/");
-		getprint(uri); # call &LWP::Simple::getprint()
+		getprint(uri); # call # &main::getprint
 	EOS
 
 	use Ruby -literal;
@@ -152,8 +152,8 @@ These are imported by default.
 
 Evals I<source> as Ruby code.
 
-If I<package> is suplied, those classes and functions that are defined in
-I<source> are imported to I<package> automatically.
+If I<package> is supplied, those classes and functions that are defined in
+I<source> are exported to I<package> automatically.
 
 =item rb_require(library)
 
@@ -174,6 +174,8 @@ For example:
 		puts "$key=$value";
 	});
 
+This method doesn't convert I<perldata> to Ruby data.
+It wraps I<perldata> with Ruby object.
 
 =back
 
@@ -185,9 +187,9 @@ These functions are importable:
 
 =item rb_m(module)
 
-=item rb_e(exeption)
+=item rb_e(exception)
 
-Obtains the defined I<class>, I<module> or I<exeption> object.
+Obtains the defined I<class>, I<module> or I<exception> object.
 
 =item rb_const(constant)
 
@@ -216,31 +218,31 @@ For example:
 
 =head2 Continuation, catch/throw
 
-Ruby's C<callcc> and C<catch/throw> will throw C<LocalJumpError>.
+Ruby's C<callcc> and C<catch/throw> functions throw C<LocalJumpError>.
 
 =head2 Ruby thread
 
-Ruby threads sometimes cause core dumps.
+Ruby threads may cause core dumps.
 
 =head2 Perl thread
 
-Perl threads often cause core dumps.
+Perl threads will cause core dumps.
 
 =head1 BUGS
 
-Maybe there are a lot of bugs.
+This module is very experimental. There are a lot of bugs.
 
 =head1 SEE ALSO
 
-L<http://www.ruby-lang.org/>
+L<http://www.ruby-lang.org/>.
 
 =head1 AUTHOR
 
 Goro Fuji (藤 吾郎) E<lt>gfuji(at)cpan.orgE<gt>
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2008, Goro Fuji. All rights reserved.
+Copyright (c) 2008, Goro Fuji. Some rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

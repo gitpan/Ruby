@@ -4,7 +4,7 @@
 /*
 ----------------------------------------------------------------------
 
-    ppport.h -- Perl/Pollution/Portability Version 3.14
+    ppport.h -- Perl/Pollution/Portability Version 3.14_01
 
     Automatically created by Devel::PPPort running under perl 5.010000.
 
@@ -23,8 +23,8 @@ SKIP
 if (@ARGV && $ARGV[0] eq '--unstrip') {
   eval { require Devel::PPPort };
   $@ and die "Cannot require Devel::PPPort, please install.\n";
-  if ($Devel::PPPort::VERSION < 3.14) {
-    die "ppport.h was originally generated with Devel::PPPort 3.14.\n"
+  if ($Devel::PPPort::VERSION < 3.1401) {
+    die "ppport.h was originally generated with Devel::PPPort 3.1401.\n"
       . "Your Devel::PPPort is only version $Devel::PPPort::VERSION.\n"
       . "Please install a newer version, or --unstrip will not work.\n";
   }
@@ -636,6 +636,15 @@ hash_PeRlHaSh = hash_PeRlHaSh * 33 + *s_PeRlHaSh++; \
 (hash) = hash_PeRlHaSh; \
 } STMT_END
 #endif
+#ifndef PERLIO_FUNCS_DECL
+#ifdef PERLIO_FUNCS_CONST
+#define PERLIO_FUNCS_DECL(funcs) const PerlIO_funcs funcs
+#define PERLIO_FUNCS_CAST(funcs) (PerlIO_funcs*)(funcs)
+#else
+#define PERLIO_FUNCS_DECL(funcs) PerlIO_funcs funcs
+#define PERLIO_FUNCS_CAST(funcs) (funcs)
+#endif
+#endif
 #ifndef PERL_SIGNALS_UNSAFE_FLAG
 #define PERL_SIGNALS_UNSAFE_FLAG 0x0001
 #if (PERL_BCDVERSION < 0x5008000)
@@ -1138,10 +1147,10 @@ if (_sv) \
 #endif
 #ifndef newSVpvn_flags
 #if defined(NEED_newSVpvn_flags)
-static SV * DPPP_(my_newSVpvn_flags)(pTHX_ const char * s, STRLEN len, U32 flags);
+static SV * DPPP_(my_newSVpvn_flags)(pTHX_ const char *s, STRLEN len, U32 flags);
 static
 #else
-extern SV * DPPP_(my_newSVpvn_flags)(pTHX_ const char * s, STRLEN len, U32 flags);
+extern SV * DPPP_(my_newSVpvn_flags)(pTHX_ const char *s, STRLEN len, U32 flags);
 #endif
 #ifdef newSVpvn_flags
 #undef newSVpvn_flags
@@ -1170,10 +1179,10 @@ return (flags & SVs_TEMP) ? sv_2mortal(sv) : sv;
 #ifdef SvPVbyte
 #if (PERL_BCDVERSION < 0x5007000)
 #if defined(NEED_sv_2pvbyte)
-static char * DPPP_(my_sv_2pvbyte)(pTHX_ SV * sv, STRLEN * lp);
+static char * DPPP_(my_sv_2pvbyte)(pTHX_ SV *sv, STRLEN *lp);
 static
 #else
-extern char * DPPP_(my_sv_2pvbyte)(pTHX_ SV * sv, STRLEN * lp);
+extern char * DPPP_(my_sv_2pvbyte)(pTHX_ SV *sv, STRLEN *lp);
 #endif
 #ifdef sv_2pvbyte
 #undef sv_2pvbyte
@@ -1232,10 +1241,10 @@ return SvPV(sv,*lp);
 #endif
 #if (PERL_BCDVERSION < 0x5007002)
 #if defined(NEED_sv_2pv_flags)
-static char * DPPP_(my_sv_2pv_flags)(pTHX_ SV * sv, STRLEN * lp, I32 flags);
+static char * DPPP_(my_sv_2pv_flags)(pTHX_ SV *sv, STRLEN *lp, I32 flags);
 static
 #else
-extern char * DPPP_(my_sv_2pv_flags)(pTHX_ SV * sv, STRLEN * lp, I32 flags);
+extern char * DPPP_(my_sv_2pv_flags)(pTHX_ SV *sv, STRLEN *lp, I32 flags);
 #endif
 #ifdef sv_2pv_flags
 #undef sv_2pv_flags
@@ -1251,10 +1260,10 @@ return sv_2pv(sv, lp ? lp : &n_a);
 }
 #endif
 #if defined(NEED_sv_pvn_force_flags)
-static char * DPPP_(my_sv_pvn_force_flags)(pTHX_ SV * sv, STRLEN * lp, I32 flags);
+static char * DPPP_(my_sv_pvn_force_flags)(pTHX_ SV *sv, STRLEN *lp, I32 flags);
 static
 #else
-extern char * DPPP_(my_sv_pvn_force_flags)(pTHX_ SV * sv, STRLEN * lp, I32 flags);
+extern char * DPPP_(my_sv_pvn_force_flags)(pTHX_ SV *sv, STRLEN *lp, I32 flags);
 #endif
 #ifdef sv_pvn_force_flags
 #undef sv_pvn_force_flags
@@ -1404,10 +1413,10 @@ STMT_START { assert(SvTYPE(sv) == SVt_IV || SvTYPE(sv) >= SVt_PVIV); \
 #endif
 #if (PERL_BCDVERSION >= 0x5004000) && !defined(vnewSVpvf)
 #if defined(NEED_vnewSVpvf)
-static SV * DPPP_(my_vnewSVpvf)(pTHX_ const char * pat, va_list * args);
+static SV * DPPP_(my_vnewSVpvf)(pTHX_ const char *pat, va_list *args);
 static
 #else
-extern SV * DPPP_(my_vnewSVpvf)(pTHX_ const char * pat, va_list * args);
+extern SV * DPPP_(my_vnewSVpvf)(pTHX_ const char *pat, va_list *args);
 #endif
 #ifdef vnewSVpvf
 #undef vnewSVpvf
@@ -1432,10 +1441,10 @@ return sv;
 #endif
 #if (PERL_BCDVERSION >= 0x5004000) && !defined(sv_catpvf_mg)
 #if defined(NEED_sv_catpvf_mg)
-static void DPPP_(my_sv_catpvf_mg)(pTHX_ SV * sv, const char * pat, ...);
+static void DPPP_(my_sv_catpvf_mg)(pTHX_ SV *sv, const char *pat, ...);
 static
 #else
-extern void DPPP_(my_sv_catpvf_mg)(pTHX_ SV * sv, const char * pat, ...);
+extern void DPPP_(my_sv_catpvf_mg)(pTHX_ SV *sv, const char *pat, ...);
 #endif
 #define Perl_sv_catpvf_mg DPPP_(my_sv_catpvf_mg)
 #if defined(NEED_sv_catpvf_mg) || defined(NEED_sv_catpvf_mg_GLOBAL)
@@ -1453,10 +1462,10 @@ va_end(args);
 #ifdef PERL_IMPLICIT_CONTEXT
 #if (PERL_BCDVERSION >= 0x5004000) && !defined(sv_catpvf_mg_nocontext)
 #if defined(NEED_sv_catpvf_mg_nocontext)
-static void DPPP_(my_sv_catpvf_mg_nocontext)(SV * sv, const char * pat, ...);
+static void DPPP_(my_sv_catpvf_mg_nocontext)(SV *sv, const char *pat, ...);
 static
 #else
-extern void DPPP_(my_sv_catpvf_mg_nocontext)(SV * sv, const char * pat, ...);
+extern void DPPP_(my_sv_catpvf_mg_nocontext)(SV *sv, const char *pat, ...);
 #endif
 #define sv_catpvf_mg_nocontext DPPP_(my_sv_catpvf_mg_nocontext)
 #define Perl_sv_catpvf_mg_nocontext DPPP_(my_sv_catpvf_mg_nocontext)
@@ -1490,10 +1499,10 @@ SvSETMAGIC(sv); \
 #endif
 #if (PERL_BCDVERSION >= 0x5004000) && !defined(sv_setpvf_mg)
 #if defined(NEED_sv_setpvf_mg)
-static void DPPP_(my_sv_setpvf_mg)(pTHX_ SV * sv, const char * pat, ...);
+static void DPPP_(my_sv_setpvf_mg)(pTHX_ SV *sv, const char *pat, ...);
 static
 #else
-extern void DPPP_(my_sv_setpvf_mg)(pTHX_ SV * sv, const char * pat, ...);
+extern void DPPP_(my_sv_setpvf_mg)(pTHX_ SV *sv, const char *pat, ...);
 #endif
 #define Perl_sv_setpvf_mg DPPP_(my_sv_setpvf_mg)
 #if defined(NEED_sv_setpvf_mg) || defined(NEED_sv_setpvf_mg_GLOBAL)
@@ -1511,10 +1520,10 @@ va_end(args);
 #ifdef PERL_IMPLICIT_CONTEXT
 #if (PERL_BCDVERSION >= 0x5004000) && !defined(sv_setpvf_mg_nocontext)
 #if defined(NEED_sv_setpvf_mg_nocontext)
-static void DPPP_(my_sv_setpvf_mg_nocontext)(SV * sv, const char * pat, ...);
+static void DPPP_(my_sv_setpvf_mg_nocontext)(SV *sv, const char *pat, ...);
 static
 #else
-extern void DPPP_(my_sv_setpvf_mg_nocontext)(SV * sv, const char * pat, ...);
+extern void DPPP_(my_sv_setpvf_mg_nocontext)(SV *sv, const char *pat, ...);
 #endif
 #define sv_setpvf_mg_nocontext DPPP_(my_sv_setpvf_mg_nocontext)
 #define Perl_sv_setpvf_mg_nocontext DPPP_(my_sv_setpvf_mg_nocontext)

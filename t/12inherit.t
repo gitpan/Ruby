@@ -38,6 +38,7 @@ BEGIN{
 		$destroyed = 1;
 	}
 }
+
 {
 	my $o = MyObject->new;
 

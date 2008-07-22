@@ -7,7 +7,7 @@ use Test::More tests => 7;
 
 BEGIN{ use_ok('Ruby', ':DEFAULT', 'rb_c') }
 
-TODO:{
+oTODO:{
 	local $TODO = 'rb_require(Ruby XS) not yet solved';
 
 	ok eval{ rb_require('digest/md5.so') }, q{rb_require 'digest/md5.so'};

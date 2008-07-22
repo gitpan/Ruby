@@ -5,15 +5,15 @@
 #ifndef PERL_RUBY_PM_H
 #define PERL_RUBY_PM_H
 
-#define getuid  rb_getuid
-#define getgid  rb_getgid
-#define geteuid rb_geteuid
-#define getegid rb_getegid
-#define setuid  rb_setuid
-#define setgid  rb_setgid
-#define kill    rb_kill
-#define chown   rb_chown
-#define tms     rb_tms
+#define getuid  _ruby_getuid
+#define getgid  _ruby_getgid
+#define geteuid _ruby_geteuid
+#define getegid _ruby_getegid
+#define setuid  _ruby_setuid
+#define setgid  _ruby_setgid
+#define kill    _ruby_kill
+#define chown   _ruby_chown
+#define tms     _ruby_tms
 
 #include <ruby.h>
 
@@ -92,7 +92,6 @@
 
 
 #include "inspect.h"
-#include "ruby_pm_debug.h"
 
 
 /* -------------------------------------- */

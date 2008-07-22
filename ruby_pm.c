@@ -45,17 +45,6 @@ plrb_initialize(pTHX)
 
 	int rargc = 3;
 
-#ifdef RUBY_PM_DEBUG
-	{
-		SV* debug = get_sv("Ruby::DEBUG", GV_ADD | GV_ADDMULTI);
-		if(!SvOK(debug)) sv_setiv(debug, 0);
-	}
-#endif
-
-	D(DB_INITFINAL, ("Ruby.pm:  -> initialize"));
-	D(DB_INITFINAL, ("Ruby.pm:     ruby_init()"));
-
-
 	if(PL_tainting && !PL_taint_warn){ /* perl -T */
 		my_argv[rargc++] = "-T";
 	}
@@ -81,6 +70,7 @@ plrb_initialize(pTHX)
 	/* initialize object register */
 	InitRegister();
 
+	/* check ruby version */
 	rbversion = rb_obj_as_string(rb_const_get(rb_cObject, rb_intern("RUBY_VERSION")));
 	if(!strEQ(RSTRING_PTR(rbversion), STRINGIFY(MY_RUBY_VERSION))){
 		croak("libruby version %s does not match Ruby.pm object version %s",
@@ -92,7 +82,6 @@ plrb_initialize(pTHX)
 	cv = newXS("Ruby::Object::__CLASS__", XS_Ruby_class_holder, __FILE__);
 	CvXSUBANY(cv).any_ptr = (void*)rb_cObject;
 
-	D(DB_INITFINAL, ("Ruby.pm:     Init_perl()"));
 	Init_perl(aTHX);    /* Perl::*  in perlobject.c */
 	Init_perlio(aTHX);  /* Perl::IO in perlio.c */
 
@@ -113,18 +102,15 @@ plrb_initialize(pTHX)
 	}
 #endif
 
-	D(DB_INITFINAL, ("Ruby.pm: <-  initialize"));
 }
 
 void
 plrb_finalize(pTHX)
 {
-	D(DB_INITFINAL, ("Ruby.pm:  -> finalize"));
 
 	plrb_root = Qfalse;
 	ruby_cleanup(0);
 
-	D(DB_INITFINAL, ("Ruby.pm: <-  finalize"));
 }
 
 bool
@@ -222,8 +208,6 @@ plrb_sv_set_value_direct(pTHX_ SV* sv, VALUE value, const char* pkg)
 	SvREADONLY_on(SvRV(sv));
 
 	if(!SPECIAL_CONST_P(value)){ /* value is pointer */
-		const char st_extender[1024*2];PERL_UNUSED_ARG(st_extender);
-
 		obj_id = rb_obj_id(value);
 
 		reg = GetRegister(obj_id);
@@ -257,8 +241,6 @@ plrb_delSVvalue(pTHX_ SV* sv){
 	VALUE reg;
 	VALUE obj_id;
 	VALUE value;
-
-	D(DB_VALUE2SV, ("Ruby.pm: delSVvalue(0x%lx)", sv));
 
 	if(!plrb_root){ /* finalized or uninitialized */
 		return;
@@ -508,7 +490,7 @@ plrb_protect(plrb_func_t func, int argc, ...)
 	va_list args;
 
 	if(argc > 3){
-		rb_bug("Too meny arguments for %s", "protect()");
+		rb_bug("Too meny arguments for %s", "plrb_protect()");
 	}
 
 	arg.func = func;
@@ -582,7 +564,7 @@ do_funcall_protect(pTHX_ VALUE recv, ID method, int argc, VALUE* argv, int has_p
 	volatile funcall_arg arg = { recv, method, argc, argv };
 	VALUE result;
 	int e = 0;
-	
+
 	result = rb_protect((plrb_func_t)(has_proc ? plrb_iterate : plrb_funcaller), (VALUE)&arg, &e);
 
 	CheckError(e);
@@ -594,7 +576,7 @@ VALUE
 plrb_funcall_protect(pTHX_ VALUE recv, ID method, int argc, SV** argv)
 {
 	volatile VALUE argbuf;
-	VALUE smallbuf[1024];
+	VALUE smallbuf[4];
 	VALUE* args;
 	int idx;
 	int has_proc;
@@ -664,29 +646,24 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 	VALUE argv[4];
 	VALUE result;
 
-	const char stack_extender[1024*2]; PERL_UNUSED_ARG(stack_extender);
-
 	S2V_INFECT(source, src);
 
 	if(SvOK(pkg)){
 		if(!(isVALUE(pkg) && NIL_P(SvVALUE(pkg)))){
-			pkgname = SvPV_nolen(pkg);
+			pkgname = SvPV_nolen_const(pkg);
 		}
 	}
 
-	if(!pkgname){ /* eval() without package */
-
-
+	if(!pkgname){
 		/* eval(source, binding, file, line) */
 		argv[0] = src; 
 		argv[1] = Qnil;
 		argv[2] = file;
 		argv[3] = INT2NUM(line);
-		result = do_funcall_protect(aTHX_ plrb_top_self, rb_intern("eval"), 4, argv, FALSE);
+
+		result = do_funcall_protect(aTHX_ plrb_top_self, rb_intern("eval"), 3, argv, FALSE);
 	}
-
-	else{ /* eval() with package */
-
+	else{
 		volatile VALUE self = plrb_get_package(pkgname);
 		volatile VALUE constants;
 

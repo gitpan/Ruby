@@ -12,6 +12,7 @@ Ruby::PerlObject - Perl object operation in Ruby side
 	Perl.eval('require LWP::Simple');
 
 	Perl.Package('LWP::Simple'){
+		p __PACKAGE__; # => "LWP::Simple"
 		getprint(Perl.String("http://www.ruby-lang.org/"));
 	}
 
@@ -102,7 +103,7 @@ Ruby::PerlObject - Perl object operation in Ruby side
 	# Perl::Class
 
 	perlclass = Perl::Class(name);
-	perlclass = Perl[name]; # the same
+	perlclass = Perl[name]; # equivalent
 	perlclass.method(args);
 	perlclass.want(:array).method(args); # call with a context
 
@@ -119,6 +120,6 @@ Ruby::PerlObject - Perl object operation in Ruby side
 
 =head1 SEE ALSO
 
-L<Ruby>
+L<Ruby>.
 
 =cut
