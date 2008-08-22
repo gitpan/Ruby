@@ -448,13 +448,14 @@ CODE:
 	/* grep{ str[0] != '=' && str[-1] '=' } @methods */
 	for (i1 = i2 = 0; i1 < RARRAY_LEN(methods); i1++) {
 		VALUE v = RARRAY_PTR(methods)[i1];
+		long len = RSTRING_LEN(v);
 		if(rb_type(v) == T_STRING
-			&& RSTRING_LEN(v) > 0
+			&& len > 0
 			&& !isPUNCT(RSTRING_PTR(v)[ 0 ])
-			&& RSTRING_PTR(v)[RSTRING_LEN(v)-1] == '='){
+			&& RSTRING_PTR(v)[len-1] == '='){
 
 			if (i1 != i2) {
-				RSTRING_LEN(v)--; /* chop for '=' */
+				rb_str_set_len(v, len-1); /* chop for '=' */
 				rb_ary_store(methods, i2, v);
 			}
 			i2++;

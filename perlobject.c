@@ -10,7 +10,12 @@
 /* module Perl */
 
 #include "ruby_pm.h"
-#include "st.h" /* ST_CONTINUE */
+
+#if MY_RUBY_VERSION_INT >= 190
+#include <ruby/st.h>
+#else
+#include <st.h> /* ST_CONTINUE */
+#endif
 
 #define plrb_any_mark NULL
 
@@ -324,7 +329,7 @@ plrb_perl_float(VALUE self, VALUE nv){
 	PERL_UNUSED_ARG(self);
 
 	n = rb_Float(nv);
-	sv = newSVnv(RFLOAT(n)->value);
+	sv = newSVnv(RFLOAT_VALUE(n));
 
 	V2S_INFECT(nv, sv);
 	return any_new_noinc( sv );
@@ -1738,7 +1743,7 @@ obj_to_perl(VALUE obj)
 		sv = newSVpv(RSTRING_PTR(obj), RSTRLEN(obj));
 		break;
 	case T_FLOAT:
-		sv = newSVnv(RFLOAT(obj)->value);
+		sv = newSVnv(RFLOAT_VALUE(obj));
 		break;
 	case T_SYMBOL:
 		sv = newSVpv(rb_id2name(SYM2ID(obj)), 0);

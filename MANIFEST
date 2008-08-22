@@ -28,6 +28,7 @@ exp/tie.pl
 exp/tie.xsh
 inspect.c
 inspect.h
+lib/Ruby.pm
 lib/Ruby.pod
 lib/Ruby/autobox.pm
 lib/Ruby/Inspect.pm
@@ -42,8 +43,8 @@ note/distfiles.pod
 perlio.c
 perlobject.c
 ppport.h
+rbport.h
 README
-Ruby.pm
 Ruby.xs
 ruby_pm.c
 ruby_pm.h

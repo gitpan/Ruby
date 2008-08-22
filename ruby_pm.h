@@ -15,13 +15,13 @@
 #define chown   _ruby_chown
 #define tms     _ruby_tms
 
+#if MY_RUBY_VERSION_INT >= 190
+#include <ruby/ruby.h>
+#else
 #include <ruby.h>
-
-#ifndef RFLOAT_VALUE
-#define RFLOAT_VALUE(v) (RFLOAT(v)->value)
-#define rb_errinfo()      (ruby_errinfo)
-#define rb_set_errinfo(v) (ruby_errinfo = v)
+#include "rbport.h"
 #endif
+
 
 #undef getuid
 #undef getgid
@@ -83,7 +83,7 @@
 #undef isatty
 #undef execv
 
-
+#define PERL_NO_GET_CONTEXT
 #include <EXTERN.h>
 #include <perl.h>
 #include <XSUB.h>

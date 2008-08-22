@@ -32,9 +32,9 @@ cmpthese timethese 0 => {
 	perladd => q{
 		use bigint;
 
-		my $i = 0;
+		my $i = 2**64;
 
-		for(1 .. 100){ $i += 100; }
+		for(1 .. 100){ $i += 100_000; }
 	},
 
 
@@ -48,8 +48,8 @@ cmpthese timethese 0 => {
 	rubyadd => q{
 		use Ruby -literal;
 
-		my $i = 0;
+		my $i = 2**64;
 
-		for(1 .. 100){ $i += 100; }
+		for(1 .. 100){ $i += 100_000; }
 	},
 };

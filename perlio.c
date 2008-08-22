@@ -313,7 +313,7 @@ pio_open(int argc, VALUE* argv, VALUE klass)
 			StringValue(v);
 
 			vmode = rb_str_new(NULL, RSTRING_LEN(v)+1);
-			RSTRING_LEN(vmode) = 0;
+			rb_str_set_len(vmode, 0);
 	
 			p   = RSTRING_PTR(v);
 
@@ -417,7 +417,7 @@ pio_binmode(int argc, VALUE* argv, VALUE self)
 			const char* name  = rb_id2name(SYM2ID(layer));
 			layer = rb_str_new(NULL, (long)strlen(name)+1);
 
-			RSTRING_LEN(layer) = 0;
+			rb_str_set_len(layer, 0);
 
 			rb_str_buf_cat2(layer, ":");
 			rb_str_buf_cat2(layer, name);

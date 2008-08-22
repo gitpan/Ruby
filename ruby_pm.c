@@ -34,30 +34,44 @@ void
 plrb_initialize(pTHX)
 {
 	VALUE rbversion;
+	SV* rbversion_sv = get_sv("Ruby::Version", GV_ADDMULTI);
 	CV* cv;
-	SV* core_version_sv = get_sv("Ruby::Version", GV_ADD | GV_ADDMULTI);
 
+	static char my_argv_buffer[10];
+	static char my_argv_elem_buffer[10][100];
 
-	static char my_arg0[] = "Ruby.pm "; /* writable buffer for ruby.set_arg0 */
+	static char* my_argv_tmpl[] = { NULL, "-e", "", NULL, NULL, NULL };
+	int my_argc = 3;
+	char** my_argv = (char**)my_argv_buffer;
+	int i;
 
-	                                            /*  -T,   -w,   -d, (END) */
-	static char* my_argv[] = { my_arg0, "-e", "", NULL, NULL, NULL, NULL };
+	my_argv_tmpl[0] = PL_origfilename;
 
-	int rargc = 3;
-
-	if(PL_tainting && !PL_taint_warn){ /* perl -T */
-		my_argv[rargc++] = "-T";
+	if(PL_tainting){ /* perl -T */
+		my_argv_tmpl[my_argc++] = "-T";
 	}
 	if(PL_dowarn & (G_WARN_ON|G_WARN_ALL_ON)){ /* perl -w */
-		my_argv[rargc++] = "-w";
+		my_argv_tmpl[my_argc++] = "-w";
 	}
 	if(PL_perldb & PERLDB_ALL){ /* perl -d */
-		my_argv[rargc++] = "-d";
+		my_argv_tmpl[my_argc++] = "-d";
 	}
 
+	/* build char** argv */
+	
+	for(i = 0; i < my_argc; i++){
+		my_argv[i] = my_argv_elem_buffer[i];
+
+		assert( strlen(my_argv_tmpl[i]) < sizeof(my_argv_elem_buffer[i]) );
+		memcpy(my_argv[i], my_argv_tmpl[i], strlen(my_argv_tmpl[i])+1);
+	}
+
+#if MY_RUBY_VERSION_INT >= 190
+	ruby_sysinit(&my_argc, &my_argv);
+#endif
 	ruby_init();
 
-	ruby_options(rargc, my_argv);
+	ruby_options(my_argc, my_argv);
 
 //	ruby_exec();
 
@@ -76,7 +90,7 @@ plrb_initialize(pTHX)
 		croak("libruby version %s does not match Ruby.pm object version %s",
 			RSTRING_PTR(rbversion), STRINGIFY(MY_RUBY_VERSION));
 	}
-	sv_setpvn(core_version_sv, RSTRING_PTR(rbversion), RSTRLEN(rbversion));
+	sv_setpvn(rbversion_sv, RSTRING_PTR(rbversion), RSTRLEN(rbversion));
 
 	/* setup baseclass */
 	cv = newXS("Ruby::Object::__CLASS__", XS_Ruby_class_holder, __FILE__);
@@ -412,7 +426,7 @@ plrb_exc_raise(VALUE exc)
 	VALUE message;
 	/*int e = 0;*/
 
-	ruby_errinfo = exc;
+	rb_set_errinfo(exc);
 
 	message = rb_obj_as_string(exc);
 
@@ -677,7 +691,7 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 
 
 		/* export classes */
-		constants = rb_mod_constants(CLASS_OF(self));
+		constants = rb_const_list( rb_mod_const_at(CLASS_OF(self), NULL) );
 		if(RARRAY_LEN(constants) > 0){
 			volatile VALUE vpkg = rb_str_new2(pkgname);
 			int pkglen = RSTRLEN(vpkg);
@@ -687,7 +701,7 @@ plrb_eval(pTHX_ SV* source, SV* pkg, const char* filename, const int line)
 				VALUE klass = rb_const_get_at(CLASS_OF(self), rb_intern(RSTRING_PTR(name)));
 
 				if(TYPE(klass) == T_CLASS || TYPE(klass) == T_MODULE){
-					rb_str_resize(vpkg, pkglen); /* rewind */
+					rb_str_resize(vpkg, pkglen);
 
 					rb_str_cat(vpkg, "::", 2);
 					rb_str_cat(vpkg, RSTRING_PTR(name), RSTRING_LEN(name));
